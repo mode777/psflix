@@ -9,7 +9,7 @@ function formatRelease(value?: string): string {
 }
 
 export function MetadataPanel({ game }: { game: GameDetail }) {
-  const discCount = game.discs ?? game.expand?.discs?.length;
+  const discCount = game.discs ?? game.expand?.discs_via_game?.length;
   const rows: Array<{ label: string; value: string }> = [
     { label: 'Developer', value: game.developer ?? '—' },
     { label: 'Publisher', value: game.publisher ?? '—' },

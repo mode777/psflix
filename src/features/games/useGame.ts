@@ -20,8 +20,8 @@ export type GameDetail = {
   players?: string;
   discs?: number;
   expand?: {
-    discs?: DiscsResponse[];
-    documents?: DocumentsResponse[];
+    discs_via_game?: DiscsResponse[];
+    documents_via_game?: DocumentsResponse[];
   };
 };
 
@@ -33,7 +33,7 @@ export function useGame(firstDiscSerial: string | undefined) {
       if (!firstDiscSerial) throw new Error('Missing serial');
       const list = await pb.collection('games').getList<GameDetail>(1, 1, {
         filter: `first_disc_serial = "${firstDiscSerial.replace(/"/g, '\\"')}"`,
-        expand: 'discs,documents',
+        expand: 'discs_via_game,documents_via_game',
       });
       const game = list.items[0];
       if (!game) throw new Error('Not found');

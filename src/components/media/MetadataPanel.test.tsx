@@ -56,7 +56,7 @@ describe('MetadataPanel', () => {
     expect(screen.getByText('not-a-date')).toBeInTheDocument();
   });
 
-  it('uses expand.discs.length as a fallback for the disc count', () => {
+  it('uses expand.discs_via_game.length as a fallback for the disc count', () => {
     render(
       <MetadataPanel
         game={
@@ -64,7 +64,7 @@ describe('MetadataPanel', () => {
             ...baseGame,
             discs: undefined,
             expand: {
-              discs: [
+              discs_via_game: [
                 {
                   id: 'd1',
                   collectionId: 'c2',

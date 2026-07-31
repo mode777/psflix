@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useGame, type GameDetail } from '@/features/games/useGame';
@@ -9,19 +10,22 @@ import { CoverImage } from '@/components/media/CoverImage';
 import { ScreenshotStack } from '@/components/media/ScreenshotStack';
 import { MetadataPanel } from '@/components/media/MetadataPanel';
 import { DocumentTile } from '@/components/media/DocumentTile';
+import { PdfPopover } from '@/components/media/PdfPopover';
 import { FeaturesChips } from '@/components/media/FeaturesChips';
 
 export default function DetailsView() {
   const { firstDiscSerial } = useParams<{ firstDiscSerial: string }>();
   const { data: game, isLoading, isError } = useGame(firstDiscSerial);
+  const [manualOpen, setManualOpen] = useState(false);
 
   if (isLoading) return <DetailsSkeleton />;
   if (isError || !game) return <DetailsNotFound />;
 
   const features = parseGameFeatures(game.features);
-  const documents: DocumentsResponse[] = game.expand?.documents ?? [];
+  const documents: DocumentsResponse[] = game.expand?.documents_via_game ?? [];
   const manual = documents.find((d) => d.type === 'manual');
   const guide = documents.find((d) => d.type === 'guide');
+  const manualUrl = manual?.file ? fileUrl(manual, manual.file) : undefined;
   const releaseYear = game.release ? game.release.slice(0, 4) : '';
   const coverUrl = game.cover_image ? fileUrl(game, game.cover_image) : undefined;
   const firstScreenshot =
@@ -129,22 +133,46 @@ export default function DetailsView() {
             </div>
             <div className="lg:col-span-4 flex flex-col gap-4">
               <MetadataPanel game={game as GameDetail} />
+              {manualUrl && (
+                <button
+                  type="button"
+                  onClick={() => setManualOpen(true)}
+                  className={cn(
+                    'glass-panel rounded-xl px-4 py-3 flex items-center gap-3',
+                    'group transition-all duration-300 card-hover-effect',
+                  )}
+                >
+                  <span
+                    className="material-symbols-outlined text-primary text-2xl group-hover:scale-110 transition-transform"
+                    aria-hidden="true"
+                  >
+                    auto_stories
+                  </span>
+                  <span className="font-body-md text-body-md text-white font-semibold">
+                    Digital Manual
+                  </span>
+                </button>
+              )}
               {game.screenshots && game.screenshots.length > 0 && (
                 <ScreenshotStack
                   screenshots={game.screenshots}
                   record={{ collectionId: game.collectionId, id: game.id }}
                 />
               )}
-              {(manual || guide) && (
-                <div className="grid grid-cols-2 gap-4">
-                  {manual && <DocumentTile document={manual} kind="manual" />}
-                  {guide && <DocumentTile document={guide} kind="guide" />}
-                </div>
-              )}
+              {guide && <DocumentTile document={guide} kind="guide" />}
             </div>
           </div>
         </section>
       </main>
+
+      {manualUrl && (
+        <PdfPopover
+          open={manualOpen}
+          url={manualUrl}
+          title="Digital Manual"
+          onClose={() => setManualOpen(false)}
+        />
+      )}
     </>
   );
 }

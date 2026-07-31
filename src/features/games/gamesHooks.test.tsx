@@ -135,7 +135,7 @@ describe('useGame', () => {
       1,
       expect.objectContaining({
         filter: 'first_disc_serial = "SCUS-12345"',
-        expand: 'discs,documents',
+        expand: 'discs_via_game,documents_via_game',
       }),
     );
     expect(result.current.data?.title).toBe('Crash Bandicoot');
