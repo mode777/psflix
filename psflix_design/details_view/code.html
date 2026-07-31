@@ -1,0 +1,260 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Obsidian Legacy - PlayStation Classic</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "inverse-primary": "#0058c9",
+                      "surface-tint": "#afc6ff",
+                      "surface-dim": "#121414",
+                      "primary": "#afc6ff",
+                      "on-tertiary-fixed-variant": "#7e2c00",
+                      "on-primary-fixed": "#001944",
+                      "on-tertiary-container": "#4e1800",
+                      "on-tertiary": "#591d00",
+                      "surface-container-low": "#1a1c1c",
+                      "outline-variant": "#414655",
+                      "surface-container-highest": "#333535",
+                      "tertiary-fixed": "#ffdbcd",
+                      "secondary-fixed": "#74f5ff",
+                      "error": "#ffb4ab",
+                      "surface-container": "#1e2020",
+                      "surface-variant": "#333535",
+                      "on-error": "#690005",
+                      "surface-bright": "#37393a",
+                      "secondary-container": "#00f1fe",
+                      "primary-fixed-dim": "#afc6ff",
+                      "surface-container-lowest": "#0c0f0f",
+                      "primary-container": "#548dff",
+                      "on-tertiary-fixed": "#360f00",
+                      "on-secondary-fixed": "#002022",
+                      "on-primary-fixed-variant": "#00429a",
+                      "inverse-surface": "#e2e2e2",
+                      "outline": "#8c90a1",
+                      "on-secondary-container": "#006a70",
+                      "on-primary": "#002d6d",
+                      "secondary-fixed-dim": "#00dbe7",
+                      "tertiary-container": "#f1651e",
+                      "tertiary-fixed-dim": "#ffb598",
+                      "error-container": "#93000a",
+                      "secondary": "#ddfcff",
+                      "on-error-container": "#ffdad6",
+                      "on-surface-variant": "#c1c6d8",
+                      "background": "#121414",
+                      "on-background": "#e2e2e2",
+                      "on-secondary-fixed-variant": "#004f54",
+                      "on-surface": "#e2e2e2",
+                      "tertiary": "#ffb598",
+                      "inverse-on-surface": "#2f3131",
+                      "on-primary-container": "#002760",
+                      "on-secondary": "#00363a",
+                      "surface": "#121414",
+                      "primary-fixed": "#d9e2ff",
+                      "surface-container-high": "#282a2b"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "unit": "8px",
+                      "margin-mobile": "20px",
+                      "gutter": "24px",
+                      "container-max": "1440px",
+                      "margin-desktop": "64px"
+              },
+              "fontFamily": {
+                      "headline-xl-mobile": ["Inter"],
+                      "headline-lg": ["Inter"],
+                      "headline-xl": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "display-lg": ["Inter"],
+                      "label-caps": ["Inter"],
+                      "body-md": ["Inter"]
+              },
+              "fontSize": {
+                      "headline-xl-mobile": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                      "headline-lg": ["32px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                      "headline-xl": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                      "display-lg": ["72px", {"lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "800"}],
+                      "label-caps": ["12px", {"lineHeight": "1", "letterSpacing": "0.1em", "fontWeight": "700"}],
+                      "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        body {
+            background-color: #0A0A0C; /* Deep Obsidian Base */
+            color: #e2e2e2;
+        }
+        .page-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('https://lh3.googleusercontent.com/aida/AP1WRLuA8Mm3oxmcqbp3K0dUHn-lvUgVONsPnVp_pCQmXq4dHJU3aZJqZezRBVXXmgDZmwFY8HTU_GhN8rL8olevrl4sYj9J4J7mPB7n_Ra5zyvpifwmvWIDY_nrGRAPChPOczesHLnIi3nsqkuIODcfnszJc4Hhe0uxxUj2XSltmBCyAAwLTjAkQ91x-2INvbNK1CJMnWn1dnP0xwCEalkiBveEjB4ru4hMoiA1jyHEQ6XhG9wTTixg_pdYcBGv');
+            background-size: cover;
+            background-position: center;
+            filter: blur(60px) brightness(0.4);
+            z-index: -1;
+            pointer-events: none;
+        }
+        .glass-panel {
+            background: rgba(22, 22, 26, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .glass-card-hover:hover {
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 40px rgba(175, 198, 255, 0.15); /* Ambient outer glow */
+            transform: scale(1.02);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #0058c9, #00f1fe);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 0 40px rgba(175, 198, 255, 0.3);
+            transform: scale(1.05);
+        }
+        .btn-ghost {
+            background: rgba(22, 22, 26, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .btn-ghost:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: scale(1.05);
+        }
+        .vignette-bottom::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40%;
+            background: linear-gradient(to top, rgba(10, 10, 12, 1), transparent);
+            pointer-events: none;
+        }
+        .ambient-shadow {
+            box-shadow: 0 20px 60px rgba(10, 10, 12, 0.8);
+        }
+        /* Hide scrollbar for carousel */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col selection:bg-primary selection:text-on-primary">
+<div class="page-background"></div>
+<!-- Main Content Canvas -->
+<main class="flex-grow relative">
+<!-- Hero Section -->
+<section class="relative w-full flex items-end pt-12 pb-8 px-margin-mobile md:px-margin-desktop mt-16">
+<!-- Hero Content -->
+<div class="relative z-10 max-w-container-max w-full flex flex-col gap-4 animate-fade-in-up mx-auto"><div class="flex flex-col gap-6 items-start"><div class="flex gap-8 items-start w-full"><div class="w-64 h-64 shrink-0 bg-surface-container-highest rounded-lg shadow-2xl border border-white/10 flex items-center justify-center"><span class="material-symbols-outlined text-6xl opacity-20">image</span></div><div class="flex flex-col gap-2 pt-2 flex-grow"><h1 class="font-display-lg text-6xl text-white drop-shadow-2xl font-black w-full">Obsidian Legacy</h1><h2 class="text-secondary-container font-headline-lg text-2xl font-semibold w-full">Action RPG</h2><div class="flex flex-wrap items-center gap-3 mt-2"><div class="flex flex-wrap gap-2"><span class="bg-white/10 px-4 py-1.5 rounded-full font-label-caps text-label-caps text-white">Retro</span><span class="bg-white/10 px-4 py-1.5 rounded-full font-label-caps text-label-caps text-white">Cult Classic</span><span class="bg-white/10 px-4 py-1.5 rounded-full font-label-caps text-label-caps text-white">Dark Fantasy</span><span class="bg-white/10 px-4 py-1.5 rounded-full font-label-caps text-label-caps text-white">Remastered</span></div></div></div></div><div class="flex flex-col gap-4 w-full"><p class="text-on-surface-variant font-body-md font-bold">Nightstone Studios • Sony Computer Entertainment • 1998</p><div class="flex flex-wrap gap-4"><button class="bg-primary hover:bg-primary/90 text-on-primary font-body-md px-8 py-3 rounded text-center transition-all duration-300 font-semibold flex items-center gap-2"><span class="material-symbols-outlined">play_arrow</span>Play</button><button class="btn-ghost font-body-md text-white px-8 py-3 rounded text-center transition-all duration-300 font-semibold flex items-center gap-2"><span class="material-symbols-outlined">resume</span>Continue</button></div></div></div></div>
+</section>
+<!-- Content Area -->
+<section class="px-margin-mobile md:px-margin-desktop py-8 max-w-container-max mx-auto space-y-16">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Left Column: Lore and Media -->
+<div class="lg:col-span-8 flex flex-col gap-12">
+<!-- Lore & Setting -->
+<div>
+<div class="space-y-4 font-body-lg text-body-lg text-on-surface-variant">
+<p class="">
+                                In the shattered world of Obsidian Legacy, you awaken as a forsaken knight bound to the fading embers of a lost empire. Traverse desolate landscapes, uncover forbidden arcana, and face colossal adversaries in a grueling quest to restore the balance of power. The ruins whisper of a time before the cataclysm, where ancient technology and dark magic intertwined.
+                            </p>
+<p class="">
+                                Experience a masterfully remastered classic, bringing the iconic 1998 action RPG into the modern era with breathtaking visuals, enhanced combat mechanics, and a meticulously restored orchestral soundtrack. Will you rekindle the flame, or let the darkness consume what little remains?
+                            </p>
+</div>
+</div>
+<!-- Media Gallery -->
+<div class="space-y-6">
+<h2 class="font-headline-lg text-3xl text-white">Screenshots</h2>
+<div class="relative group/carousel"><button class="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-black/60 p-2 rounded-full opacity-0 group-hover/carousel:opacity-100 transition-opacity border border-white/10 ml-2"><span class="material-symbols-outlined text-white">chevron_left</span></button><div class="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory hide-scrollbar"><div class="relative rounded-xl overflow-hidden group ambient-shadow glass-card-hover w-1/3 aspect-video snap-center cursor-pointer shrink-0"><img alt="" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src="https://lh3.googleusercontent.com/aida/AP1WRLuA8Mm3oxmcqbp3K0dUHn-lvUgVONsPnVp_pCQmXq4dHJU3aZJqZezRBVXXmgDZmwFY8HTU_GhN8rL8olevrl4sYj9J4J7mPB7n_Ra5zyvpifwmvWIDY_nrGRAPChPOczesHLnIi3nsqkuIODcfnszJc4Hhe0uxxUj2XSltmBCyAAwLTjAkQ91x-2INvbNK1CJMnWn1dnP0xwCEalkiBveEjB4ru4hMoiA1jyHEQ6XhG9wTTixg_pdYcBGv"><div class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-300"></div></div><div class="relative rounded-xl overflow-hidden group ambient-shadow glass-card-hover w-1/3 aspect-video snap-center cursor-pointer shrink-0"><img alt="" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" src="https://lh3.googleusercontent.com/aida/AP1WRLutjJFkGyMUAPNInc5ZKdQhwq5HZ78jPjoTlZ-iNSsJU_lfdBDKEpdrj1sQqUHbzIuHZiCeMhnU3is18HbM6UI445E9l8upvbj7vy08vkKJztJJh3v9dyWVrc1wUsXGVOtqzpLmjDBaMjCtcTRvirs85w87s-DmOpoAG6ikXOMnDXZlTPDstImqfx2D_7FKb-3gyIA0yDdLebU4jsynpeel153LGBmOZGXUZCZYL37hv0jfBLWeTehsMqA"><div class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-300"></div></div></div><button class="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-black/60 p-2 rounded-full opacity-0 group-hover/carousel:opacity-100 transition-opacity border border-white/10 mr-2"><span class="material-symbols-outlined text-white">chevron_right</span></button></div>
+</div>
+</div>
+<!-- Right Column: Meta & Documentation -->
+<div class="lg:col-span-4 flex flex-col gap-6">
+<!-- Game Metadata (Vertical List) -->
+<div class="glass-panel rounded-xl p-8 ambient-shadow transition-all duration-300">
+<h3 class="font-headline-lg text-3xl text-white mb-6 border-b border-outline-variant/30 pb-4">Game Information</h3>
+<div class="flex flex-col gap-6">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-1">Developer</p>
+<p class="font-body-md text-body-md text-white font-medium">Nightstone Studios</p>
+</div>
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-1">Publisher</p>
+<p class="font-body-md text-body-md text-white font-medium">Sony Computer Entertainment</p>
+</div>
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-1">First Release</p>
+<p class="font-body-md text-body-md text-white font-medium">Oct 1998</p>
+</div>
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-1">Players</p>
+<p class="font-body-md text-body-md text-white font-medium">1-2 Players</p>
+</div>
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-1">Discs</p>
+<p class="font-body-md text-body-md text-white font-medium">2 CDs</p>
+</div>
+</div>
+</div>
+<!-- Documentation Links (Single Row) -->
+<div class="grid grid-cols-2 gap-4">
+<a class="glass-panel glass-card-hover rounded-xl p-4 flex flex-col items-center justify-center text-center group transition-all duration-300 h-full gap-2" href="#">
+<span class="material-symbols-outlined text-primary text-3xl group-hover:scale-110 transition-transform" data-icon="auto_stories">auto_stories</span>
+<span class="font-body-md text-body-md text-white font-semibold">Digital Manual</span>
+</a>
+<a class="glass-panel glass-card-hover rounded-xl p-4 flex flex-col items-center justify-center text-center group transition-all duration-300 h-full gap-2" href="#">
+<span class="material-symbols-outlined text-secondary-container text-3xl group-hover:scale-110 transition-transform" data-icon="map">map</span>
+<span class="font-body-md text-body-md text-white font-semibold">Strategy Guide</span>
+</a>
+</div>
+</div>
+</div>
+</section>
+</main>
+<style>
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+        .text-shadow {
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+    </style>
+
+
+</body></html>
