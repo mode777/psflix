@@ -1,0 +1,241 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>PSFLIX - Akuji the Heartless (Playing)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .fill-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+        body {
+            background-color: #111317;
+            color: #e2e2e8;
+            font-family: 'Hanken Grotesk', sans-serif;
+            overflow: hidden;
+        }
+        .glass-panel {
+            background: rgba(30, 32, 36, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .crt-overlay {
+            pointer-events: none;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 3px, 3px 100%;
+            z-index: 10;
+        }
+        .game-window-shadow {
+            box-shadow: 0 0 80px -20px rgba(0, 0, 0, 0.5);
+        }
+        /* Custom range styling */
+        input[type=range]::-webkit-slider-runnable-track {
+            background: rgba(255, 255, 255, 0.1);
+            height: 4px;
+            border-radius: 2px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            background: #b2c5ff;
+            margin-top: -4px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#b2c5ff",
+                        "surface": "#111317",
+                        "surface-container": "#1e2024",
+                        "on-surface": "#e2e2e8",
+                        "outline-variant": "#44464f",
+                    },
+                    borderRadius: {
+                        "button": "0.25rem",
+                        "panel": "0.75rem",
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-screen flex flex-col p-8 bg-surface">
+<!-- Header Title -->
+<header class="mb-6 flex justify-between items-center">
+<div class="flex items-center gap-4">
+
+<div>
+<h1 class="text-2xl font-bold tracking-tight">Akuji the Heartless</h1>
+<p class="text-xs text-on-surface-variant uppercase tracking-widest font-semibold">Crystal Dynamics • 1998</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1">
+<div class="px-3 py-1 bg-white/5 border border-white/10 rounded-full flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-green-500 fill-icon">album</span>
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Disc 1</span>
+</div>
+<button class="ml-1 p-1 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center"><span class="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">Change</span>
+<span class="material-symbols-outlined text-lg text-white/40">expand_more</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<div class="flex-1 flex gap-8 min-h-0">
+<!-- Left: Game Window -->
+<main class="flex-[3] flex justify-center relative bg-black/20 rounded-panel overflow-hidden border border-white/5">
+<div class="relative w-full max-h-full bg-black shadow-2xl game-window-shadow overflow-hidden group" style="aspect-ratio: 8 / 3;">
+<!-- Game Scene Image -->
+<div class="w-full h-full bg-blue-600"></div>
+<!-- CRT Layer -->
+<div class="crt-overlay absolute inset-0 opacity-40" id="crt-layer"></div>
+<!-- Live Status -->
+
+<div class="absolute top-4 right-4 z-20 flex items-center gap-2" id="game-controls-container">
+<button class="flex items-center justify-center gap-2 bg-primary text-on-primary-fixed font-bold px-4 py-2 rounded-button transition-all active:scale-[0.98] shadow-lg">
+<span class="material-symbols-outlined text-lg fill-icon">pause</span>
+<span class="text-xs uppercase tracking-widest">Pause</span>
+</button>
+<button class="flex items-center justify-center gap-2 bg-black/40 backdrop-blur-md text-primary font-bold px-4 py-2 rounded-button border border-white/10 hover:bg-black/60 transition-all active:scale-[0.98] shadow-lg">
+<span class="material-symbols-outlined text-lg">fullscreen</span>
+<span class="text-xs uppercase tracking-widest">Fullscreen</span>
+</button>
+</div>
+</div>
+</main>
+<!-- Right: Vertical Controls Panel -->
+<aside class="flex-1 w-96 flex flex-col gap-6 glass-panel p-6 rounded-panel overflow-y-auto">
+<!-- Port Management -->
+<section class="space-y-4">
+<h3 class="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">videogame_asset</span>
+                    Port Management
+                </h3>
+<div class="space-y-3">
+<div class="space-y-1">
+<label class="text-[10px] uppercase text-white/30 ml-1">Controller Port 1</label>
+<select class="w-full bg-white/5 border border-white/10 rounded-button px-4 py-3 text-sm appearance-none focus:border-primary/50 focus:ring-0 cursor-pointer">
+<option>Standard Pad</option>
+<option>Dual-Shock</option>
+<option>PlayStation Mouse</option>
+</select>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] uppercase text-white/30 ml-1">Controller Port 2</label>
+<select class="w-full bg-white/5 border border-white/10 rounded-button px-4 py-3 text-sm appearance-none focus:border-primary/50 focus:ring-0 cursor-pointer text-white/40 italic">
+<option>Empty</option>
+<option>Standard Pad</option>
+<option>Dual-Shock</option>
+</select>
+</div>
+</div>
+</section>
+<!-- System Controls -->
+<section class="space-y-4">
+<h3 class="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">settings_input_component</span>
+                    System Commands
+                </h3>
+<div class="grid gap-2 flex-col">
+<button class="flex items-center gap-2 px-3 py-2 rounded-button bg-white/5 border border-white/5 hover:bg-white/10 transition-all px-4">
+<span class="material-symbols-outlined text-white/60 text-sm">restart_alt</span>
+<span class="text-[10px] font-bold uppercase tracking-tight">RESET GAME</span>
+</button>
+
+<button class="flex items-center gap-2 px-3 py-2 rounded-button bg-white/5 border border-white/5 hover:bg-white/10 transition-all px-4">
+<span class="material-symbols-outlined text-white/60 text-sm">save</span>
+<span class="text-[10px] font-bold uppercase tracking-tight">SAVE STATE</span>
+</button>
+<button class="flex items-center gap-2 px-3 py-2 rounded-button bg-white/5 border border-white/5 hover:bg-white/10 transition-all px-4">
+<span class="material-symbols-outlined text-white/60 text-sm">download</span>
+<span class="text-[10px] font-bold uppercase tracking-tight">LOAD STATE</span>
+</button>
+</div>
+</section>
+<!-- Env & Memory -->
+<section class="space-y-4">
+<h3 class="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">display_settings</span>
+                    Environment
+                </h3>
+<div class="space-y-4 p-4 rounded-button bg-white/5 border border-white/5">
+<!-- Memory Card Dropdown -->
+<div class="space-y-2">
+<div class="flex items-center gap-2 text-white/60">
+<span class="material-symbols-outlined text-sm">sd_card</span>
+<span class="text-xs uppercase font-medium">Memory Slot 1</span>
+</div>
+<select class="w-full bg-white/10 border border-transparent rounded-button px-3 py-2 text-xs focus:border-primary/50 focus:ring-0 cursor-pointer">
+<option>Main Save (12/15 Blocks)</option>
+<option>RPG Card (8/15 Blocks)</option>
+<option>Empty Slot</option>
+</select>
+</div><div class="space-y-2">
+<div class="flex items-center gap-2 text-white/60">
+<span class="material-symbols-outlined text-sm">sd_card</span>
+<span class="text-xs uppercase font-medium">Memory Slot 2</span>
+</div>
+<select class="w-full bg-white/10 border border-transparent rounded-button px-3 py-2 text-xs focus:border-primary/50 focus:ring-0 cursor-pointer">
+<option>Empty Slot</option>
+<option>Main Save (12/15 Blocks)</option>
+<option>RPG Card (8/15 Blocks)</option>
+</select>
+</div>
+<!-- CRT Filter Toggle -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2 text-white/60">
+<span class="material-symbols-outlined text-sm">tv</span>
+<span class="text-xs uppercase font-medium">CRT Filter</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" id="crt-toggle" type="checkbox">
+<div class="w-10 h-5 bg-white/10 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/30 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary/20"></div>
+</label>
+</div>
+<!-- Volume -->
+<div class="space-y-2">
+<div class="flex justify-between text-[10px] text-white/40 uppercase">
+<span class="">Master Audio</span>
+<span class="text-primary">85%</span>
+</div>
+<input class="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer" max="100" min="0" type="range" value="85">
+</div>
+</div>
+</section>
+<!-- Bottom Actions -->
+<div class="mt-auto pt-4 flex gap-3">
+<button class="flex-1 py-3 bg-white/5 border border-white/5 rounded-button text-white/60 text-xs font-bold uppercase hover:bg-white/10 transition-colors">
+                    Options
+                </button>
+<button class="flex-1 py-3 bg-red-900/20 border border-red-900/30 text-red-400 text-xs font-bold uppercase hover:bg-red-900/30 transition-colors">
+                    Power Off
+                </button>
+</div>
+</aside>
+</div>
+<script>
+        const crtToggle = document.getElementById('crt-toggle');
+        const crtLayer = document.getElementById('crt-layer');
+
+        crtToggle.addEventListener('change', () => {
+            crtLayer.style.opacity = crtToggle.checked ? '0.4' : '0';
+        });
+
+        document.querySelectorAll('button, select').forEach(el => {
+            el.addEventListener('click', () => {
+                console.log('Obsidian Console Action');
+            });
+        });
+    </script>
+
+
+</body></html>

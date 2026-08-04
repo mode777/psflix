@@ -7,7 +7,15 @@ module.exports = {
     'plugin:react-hooks/recommended',
     'prettier',
   ],
-  ignorePatterns: ['dist', 'node_modules', '.eslintrc.cjs', 'src/types/pocketbase.ts'],
+  ignorePatterns: [
+    'dist',
+    'node_modules',
+    '.eslintrc.cjs',
+    'src/types/pocketbase.ts',
+    'src/vendor/psxanywhere',
+    'tests/vendor/psxanywhere',
+    'scripts/test',
+  ],
   parser: '@typescript-eslint/parser',
   plugins: ['react-refresh'],
   rules: {

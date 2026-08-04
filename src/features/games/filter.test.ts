@@ -34,16 +34,16 @@ describe('buildGameFilter', () => {
   });
 
   it('builds a genre clause for any non-All genre', () => {
-    expect(buildGameFilter({ genre: 'Action' })).toBe('genre ~ "Action"');
+    expect(buildGameFilter({ genre: 'Action' })).toBe('genre:lower = "action"');
   });
 
   it('joins search and genre clauses with &&', () => {
     expect(buildGameFilter({ search: 'crash', genre: 'Platformer' })).toBe(
-      '(title ~ "crash" || first_disc_serial ~ "crash") && genre ~ "Platformer"',
+      '(title ~ "crash" || first_disc_serial ~ "crash") && genre:lower = "platformer"',
     );
   });
 
-  it('escapes quotes in the genre value too', () => {
-    expect(buildGameFilter({ genre: 'A"B' })).toBe('genre ~ "A\\"B"');
+  it('matches case-insensitively and escapes quotes in the genre value', () => {
+    expect(buildGameFilter({ genre: 'A"B' })).toBe('genre:lower = "a\\"b"');
   });
 });

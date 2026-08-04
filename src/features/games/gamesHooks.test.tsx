@@ -103,7 +103,7 @@ describe('useGames', () => {
       1,
       24,
       expect.objectContaining({
-        filter: '(title ~ "crash" || first_disc_serial ~ "crash") && genre ~ "Platformer"',
+        filter: '(title ~ "crash" || first_disc_serial ~ "crash") && genre:lower = "platformer"',
       }),
     );
   });

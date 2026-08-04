@@ -6,6 +6,7 @@ import type PocketBase from 'pocketbase';
 import type { RecordService } from 'pocketbase';
 
 export const Collections = {
+  Consoles: 'consoles',
   Discs: 'discs',
   Documents: 'documents',
   Games: 'games',
@@ -43,6 +44,22 @@ export type AuthSystemFields<T = unknown> = {
 } & BaseSystemFields<T>;
 
 // Record types for each collection
+
+export const ConsolesRegionOptions = {
+  'NTSC-U': 'NTSC-U',
+  'NTSC-J': 'NTSC-J',
+  PAL: 'PAL',
+} as const;
+export type ConsolesRegionOptions =
+  (typeof ConsolesRegionOptions)[keyof typeof ConsolesRegionOptions];
+export type ConsolesRecord = {
+  bios: FileNameString;
+  created: IsoAutoDateString;
+  id: string;
+  label?: string;
+  region?: ConsolesRegionOptions;
+  updated: IsoAutoDateString;
+};
 
 export type DiscsRecord = {
   created: IsoAutoDateString;
@@ -135,6 +152,8 @@ export type UsersRecord = {
 };
 
 // Response types include system fields and match responses from the PocketBase API
+export type ConsolesResponse<Texpand = unknown> = Required<ConsolesRecord> &
+  BaseSystemFields<Texpand>;
 export type DiscsResponse<Texpand = unknown> = Required<DiscsRecord> & BaseSystemFields<Texpand>;
 export type DocumentsResponse<Texpand = unknown> = Required<DocumentsRecord> &
   BaseSystemFields<Texpand>;
@@ -151,6 +170,7 @@ export type UsersResponse<Texpand = unknown> = Required<UsersRecord> & AuthSyste
 // Types containing all Records and Responses, useful for creating typing helper functions
 
 export type CollectionRecords = {
+  consoles: ConsolesRecord;
   discs: DiscsRecord;
   documents: DocumentsRecord;
   games: GamesRecord;
@@ -160,6 +180,7 @@ export type CollectionRecords = {
 };
 
 export type CollectionResponses = {
+  consoles: ConsolesResponse;
   discs: DiscsResponse;
   documents: DocumentsResponse;
   games: GamesResponse;

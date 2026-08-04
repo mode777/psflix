@@ -8,10 +8,18 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'emulator-core': path.resolve(__dirname, './src/vendor/psxanywhere/emulator/index.ts'),
+      'emulator-client': path.resolve(__dirname, './src/vendor/psxanywhere/client/index.ts'),
+      repository: path.resolve(__dirname, './src/vendor/psxanywhere/repository/index.ts'),
     },
   },
   server: {
     port: 5173,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+      'Cross-Origin-Resource-Policy': 'same-origin',
+    },
   },
   build: {
     target: 'es2020',

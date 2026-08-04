@@ -46,6 +46,7 @@ The mocks in `psflix_design/<view>/code.html` already encode the Tailwind config
 | `games`        | A game title                        | Public list/view                                               |
 | `discs`        | One physical disc of a game         | Public; cascade-deletes with `game`                            |
 | `documents`    | Manuals / guides (PDF etc.)         | Public; optional relation to `game`                            |
+| `consoles`     | BIOS host (one record: `SCPH1001`)  | Public read; no public write                                   |
 | `memory_cards` | Per-user memory card image          | Owner only (`@request.auth.id = user.id`)                      |
 | `save_state`   | Per-user save state file            | Owner only; unique on `(type, disc, user)`                     |
 
@@ -58,7 +59,8 @@ The mocks in `psflix_design/<view>/code.html` already encode the Tailwind config
 - `save_state.type` select values: `auto`, `slot1`, `slot2`, `slot3` — mirrors PS1 memory card slot convention; `auto` is the autosave slot.
 - `games.languages` and `games.features` are **JSON** fields, not relations — parse client-side, do not try to expand them.
 - `games.screenshots` is `maxSelect: 10`; `discs.iso` and `documents.file` are single files. All file fields come back as filenames and must be resolved via the PocketBase files URL pattern: `/api/files/<collectionId>/<recordId>/<filename>`.
-- `save_state.data` and `memory_cards.data` are required file payloads — these will likely back a future emulator/player feature, but no emulator is wired in yet. Do not build UI for them until the user asks.
+- `save_state.data` and `memory_cards.data` are required file payloads backing the emulator's cloud sync (Phase 2). Phase 1 persists save states + memory cards to **local IndexedDB** only via the vendored PSxAnywhere facade; the `save_state` / `memory_cards` collections are not written until Phase 2 lands. See `specs/emulator-integration/`.
+- `consoles.bios` is a required single file (`maxSize` 2 MB) — the PS1 BIOS (`SCPH1001.BIN`). Public read matters: the CHD streaming bridge fetches it with no auth header. One record is uploaded.
 
 ### Auth & realtime
 
@@ -74,6 +76,17 @@ The mocks in `psflix_design/<view>/code.html` already encode the Tailwind config
 - Always expand `discs` (and `screenshots` / `cover_image`) on `games` reads so the UI has what it needs in one request. `games.languages` / `features` come back as raw JSON — type them in the client.
 - For file URLs, build them with the PocketBase client helper, not by string concatenation against the base URL.
 - The build emits a static SPA via `npm run build`; verify it with `npm run verify:build`. New code must keep these green.
+
+## Emulator integration (Phase 1: local-only IDB)
+
+The console (`/play/:firstDiscSerial`) runs a real PS1 emulator. Spec + phased plan live in `specs/emulator-integration/` (`spec.md`, `phase-1.md`, `phase-2.md`). Read them before touching the console feature.
+
+- **Vendored facade**: `src/vendor/psxanywhere/{emulator,client,repository}` is a clean-cut copy of PSxAnywhere (treated as a black box — do not import back into PSflix). Three path aliases (`emulator-core`, `emulator-client`, `repository`) resolve it; the only external runtime dep is `pocketbase` (already present). ESLint ignores this tree; `tsconfig.audio-worklet.json` type-checks the worklet `.js` files separately. The static core `public/pcsx_rearmed.{js,wasm}` is served at the origin root.
+- **Adapters** (PSflix code in `src/features/console/services/`): `PsxAnywhereEmulatorService` wraps `EmulatorClient` and backs the `emulatorService` singleton; `PsxAnywhereRepository` implements PSxAnywhere's `Repository` over PSflix's `pb` singleton (one auth source). Phase 1 stubs cloud sync — saves/memcards persist to IndexedDB only.
+- **Canvas**: `GameWindow` mounts a stable `<canvas>`; `useEmulator` runs the boot order (attach → resume → loadDisc) as one sequenced async chain. The facade swaps the canvas on `reset()`; the ref is re-bound via `emulatorService.getCanvas()`.
+- **Cross-origin isolation** (non-negotiable): `SharedArrayBuffer` requires `COOP: same-origin`, `COEP: require-corp`, `CORP: same-origin` on every response. Vite sends them in dev (`vite.config.ts`); prod needs a reverse proxy in front of PocketBase (deployed via Flux, out of repo). Verify `self.crossOriginIsolated === true` in the browser.
+- **BIOS**: the facade fetches `SCPH1001.BIN` from the `consoles` collection at `loadDisc` time (public read, no auth header).
+- Phase 2 wires cloud sync of `save_state` + `memory_cards`; until then those collections are read-untouched.
 
 ## Deployment
 

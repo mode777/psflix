@@ -6,9 +6,15 @@ export type PdfPopoverProps = {
   url: string;
   title: string;
   onClose: () => void;
+  size?: 'square' | 'wide';
 };
 
-export function PdfPopover({ open, url, title, onClose }: PdfPopoverProps) {
+const FRAME_SIZE: Record<NonNullable<PdfPopoverProps['size']>, string> = {
+  square: 'w-full max-w-[min(80vh,700px)] aspect-square',
+  wide: 'w-full max-w-[min(1200px,112vh)] aspect-[4/3]',
+};
+
+export function PdfPopover({ open, url, title, onClose, size = 'square' }: PdfPopoverProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useFocusOnDialog(open, dialogRef);
@@ -58,7 +64,7 @@ export function PdfPopover({ open, url, title, onClose }: PdfPopoverProps) {
         <iframe
           src={url}
           title={title}
-          className="w-full max-w-[min(80vh,700px)] aspect-square rounded-xl border border-white/10 shadow-2xl bg-white"
+          className={`${FRAME_SIZE[size]} rounded-xl border border-white/10 shadow-2xl bg-white`}
         />
       </div>
     </dialog>

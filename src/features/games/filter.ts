@@ -12,8 +12,8 @@ export function buildGameFilter({ search, genre }: GameFilters): string | undefi
   }
 
   if (genre && genre !== 'All') {
-    const escaped = genre.replace(/"/g, '\\"');
-    clauses.push(`genre ~ "${escaped}"`);
+    const escapedLower = genre.toLowerCase().replace(/"/g, '\\"');
+    clauses.push(`genre:lower = "${escapedLower}"`);
   }
 
   return clauses.length === 0 ? undefined : clauses.join(' && ');

@@ -9,7 +9,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
     css: false,
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.test.ts'],
     exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
     coverage: {
       provider: 'v8',
@@ -21,6 +21,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'emulator-core': path.resolve(__dirname, './src/vendor/psxanywhere/emulator/index.ts'),
+      'emulator-client': path.resolve(__dirname, './src/vendor/psxanywhere/client/index.ts'),
+      repository: path.resolve(__dirname, './src/vendor/psxanywhere/repository/index.ts'),
     },
   },
 });

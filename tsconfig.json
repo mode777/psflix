@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
 
@@ -12,6 +12,7 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
+    "allowJs": true,
     "jsx": "react-jsx",
 
     "strict": true,
@@ -21,9 +22,20 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "emulator-core": ["src/vendor/psxanywhere/emulator/index"],
+      "emulator-client": ["src/vendor/psxanywhere/client/index"],
+      "repository": ["src/vendor/psxanywhere/repository/index"]
     }
   },
   "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "exclude": [
+    "src/vendor/psxanywhere/emulator/audio-worklet.ts",
+    "src/vendor/psxanywhere/emulator/audio-worklet.d.ts",
+    "src/vendor/psxanywhere/emulator/sab/layout.js",
+    "src/vendor/psxanywhere/emulator/worker/sab_runtime.js"
+  ],
+  "references": [
+    { "path": "./tsconfig.node.json" }
+  ]
 }

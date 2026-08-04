@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import { useGames } from '@/features/games/useGames';
-import { GENRES } from '@/features/games/genres';
+import { useGenres } from '@/features/games/useGenres';
+import { ALL_GENRE } from '@/features/games/genres';
 import { GameCard, type GameCardGame } from '@/components/media/GameCard';
 import { GameCardSkeleton } from '@/components/media/GameCardSkeleton';
 import { GenreChips } from '@/components/media/GenreChips';
@@ -35,6 +36,9 @@ export default function BrowseView() {
       search: deferredSearch,
       genre,
     });
+
+  const { data: genreLabels } = useGenres();
+  const genres = [ALL_GENRE, ...(genreLabels ?? [])];
 
   const items = data?.pages.flatMap((p) => p.items) ?? [];
   const featured = items[0] ?? null;
@@ -86,7 +90,7 @@ export default function BrowseView() {
         </header>
 
         <div className="glass-panel rounded-xl p-4 mb-12 flex flex-col md:flex-row gap-4 items-center justify-between border border-white/5">
-          <GenreChips genres={GENRES} value={genre} onChange={setGenre} />
+          <GenreChips genres={genres} value={genre} onChange={setGenre} />
           <SearchBar value={search} onChange={setSearch} />
         </div>
 

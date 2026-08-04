@@ -98,6 +98,69 @@
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
+  .crt-overlay {
+    pointer-events: none;
+    background:
+      linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%),
+      linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 0, 0.03));
+    background-size:
+      100% 3px,
+      3px 100%;
+  }
+  .console-range {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+  }
+  .console-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+    background: var(--range-fill, #afc6ff);
+    cursor: pointer;
+    border: none;
+  }
+  .console-range::-moz-range-thumb {
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+    background: var(--range-fill, #afc6ff);
+    cursor: pointer;
+    border: none;
+  }
+  .console-range-vertical {
+    -webkit-appearance: none;
+    appearance: none;
+    transform: rotate(-90deg);
+    transform-origin: center center;
+  }
+  .console-range-vertical::-webkit-slider-runnable-track {
+    background: linear-gradient(
+      to right,
+      var(--range-fill, #afc6ff) 0%,
+      var(--range-fill, #afc6ff) var(--vol, 50%),
+      rgba(255, 255, 255, 0.1) var(--vol, 50%),
+      rgba(255, 255, 255, 0.1) 100%
+    );
+    height: 4px;
+    border-radius: 2px;
+  }
+  .console-range-vertical::-moz-range-track {
+    background: linear-gradient(
+      to right,
+      var(--range-fill, #afc6ff) 0%,
+      var(--range-fill, #afc6ff) var(--vol, 50%),
+      rgba(255, 255, 255, 0.1) var(--vol, 50%),
+      rgba(255, 255, 255, 0.1) 100%
+    );
+    height: 4px;
+    border-radius: 2px;
+  }
 }
 
 @keyframes fadeInUp {

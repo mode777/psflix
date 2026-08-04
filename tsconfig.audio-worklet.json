@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "WebWorker"],
+    "strict": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "allowJs": true
+  },
+  "include": [
+    "src/vendor/psxanywhere/emulator/audio-worklet.d.ts",
+    "src/vendor/psxanywhere/emulator/audio-worklet.ts",
+    "src/vendor/psxanywhere/emulator/sab/layout.js"
+  ]
+}

@@ -1,0 +1,50 @@
+'use strict';
+
+import { BUTTON } from 'emulator-core';
+
+export const DEFAULT_KEY_MAP: Record<string, number> = {
+  ArrowUp: BUTTON.UP,
+  ArrowDown: BUTTON.DOWN,
+  ArrowLeft: BUTTON.LEFT,
+  ArrowRight: BUTTON.RIGHT,
+  Enter: BUTTON.START,
+  Tab: BUTTON.SELECT,
+  x: BUTTON.A,
+  X: BUTTON.A,
+  z: BUTTON.B,
+  Z: BUTTON.B,
+  s: BUTTON.X,
+  S: BUTTON.X,
+  a: BUTTON.Y,
+  A: BUTTON.Y,
+  q: BUTTON.L,
+  Q: BUTTON.L,
+  w: BUTTON.R,
+  W: BUTTON.R,
+  e: BUTTON.L2,
+  E: BUTTON.L2,
+  r: BUTTON.R2,
+  R: BUTTON.R2,
+  ' ': BUTTON.B,
+  Space: BUTTON.B,
+  Escape: BUTTON.A,
+};
+
+export const DEFAULT_GAMEPAD_MAP: Record<number, number> = {
+  0: BUTTON.B,
+  1: BUTTON.A,
+  2: BUTTON.Y,
+  3: BUTTON.X,
+  4: BUTTON.L,
+  5: BUTTON.R,
+  6: BUTTON.L2,
+  7: BUTTON.R2,
+  8: BUTTON.SELECT,
+  9: BUTTON.START,
+  10: BUTTON.L3,
+  11: BUTTON.R3,
+  12: BUTTON.UP,
+  13: BUTTON.DOWN,
+  14: BUTTON.LEFT,
+  15: BUTTON.RIGHT,
+};

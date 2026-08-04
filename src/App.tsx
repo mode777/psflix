@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import Header from '@/components/layout/Header';
 import BrowseView from '@/routes/BrowseView';
 import DetailsView from '@/routes/DetailsView';
+import ConsoleView from '@/routes/ConsoleView';
 import NotFoundView from '@/routes/NotFoundView';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
@@ -22,6 +23,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<BrowseView />} />
           <Route path="/game/:firstDiscSerial" element={<DetailsView />} />
+          <Route path="/play/:firstDiscSerial" element={<ConsoleView />} />
           <Route path="*" element={<NotFoundView />} />
         </Routes>
       </ErrorBoundary>
