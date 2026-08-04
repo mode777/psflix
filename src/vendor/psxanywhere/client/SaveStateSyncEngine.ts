@@ -121,15 +121,12 @@ export class SaveStateSyncEngine {
         this._log('info', 'Downloading newer save states from server...');
         await this._downloadNewer(this._activeDiscSerial);
         this._shouldDownload = false;
-        if (this._onSyncComplete) {
-          try {
-            this._onSyncComplete();
-          } catch (e: unknown) {
-            this._log(
-              'warn',
-              `SaveStateSyncEngine: onSyncComplete callback failed: ${formatErr(e)}`,
-            );
-          }
+      }
+      if (this._onSyncComplete) {
+        try {
+          this._onSyncComplete();
+        } catch (e: unknown) {
+          this._log('warn', `SaveStateSyncEngine: onSyncComplete callback failed: ${formatErr(e)}`);
         }
       }
     } catch (e: unknown) {

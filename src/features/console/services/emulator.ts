@@ -7,6 +7,7 @@ import type {
   PlayerRuntimeState,
   SaveSlot,
   SaveStateInfo,
+  SyncStatus,
 } from '../types';
 import type { DiscsResponse } from '@/types/pocketbase';
 
@@ -47,6 +48,12 @@ export interface EmulatorService {
   getRuntime(): PlayerRuntimeState;
   /** Subscribe to runtime changes; returns an unsubscribe fn. */
   subscribeRuntime(listener: () => void): () => void;
+
+  // --- cloud sync status (Phase 2) -------------------------------------
+  /** Current save-state / memory-card cloud-sync status. */
+  getSyncStatus(): SyncStatus;
+  /** Subscribe to sync-status changes; returns an unsubscribe fn. */
+  subscribeSyncStatus(listener: () => void): () => void;
 
   // --- save states (maps onto pb.collection('save_state')) --------------
   listSaveStates(discId: string, userId: string): Promise<SaveStateInfo[]>;

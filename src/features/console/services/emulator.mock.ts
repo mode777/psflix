@@ -9,6 +9,7 @@ import type {
   PlayerRuntimeState,
   SaveSlot,
   SaveStateInfo,
+  SyncStatus,
 } from '../types';
 import type { EmulatorService } from './emulator';
 
@@ -143,6 +144,14 @@ export class MockEmulatorService implements EmulatorService {
 
   subscribeRuntime(listener: () => void): () => void {
     return useMockStore.subscribe(listener);
+  }
+
+  getSyncStatus(): SyncStatus {
+    return 'idle';
+  }
+
+  subscribeSyncStatus(): () => void {
+    return () => {};
   }
 
   async listSaveStates(discId: string, userId: string): Promise<SaveStateInfo[]> {

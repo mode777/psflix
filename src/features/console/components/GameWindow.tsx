@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { cn } from '@/lib/cn';
 import { emulatorService } from '../services';
-import type { PlayerStatus, SaveSlot } from '../types';
+import { useSyncStatus } from '../hooks/useSyncStatus';
+import type { PlayerStatus, SaveSlot, SyncStatus } from '../types';
 import { NoEmulatorOverlay } from './NoEmulatorOverlay';
 import { SlotPickerDialog } from './SlotPickerDialog';
+import { VolumeControl } from './VolumeControl';
 import type { SaveStateInfo } from '../types';
 
 type GameWindowProps = {
@@ -21,6 +23,7 @@ type GameWindowProps = {
   saves: SaveStateInfo[];
   onSave: (slot: SaveSlot) => void;
   onLoad: (slot: SaveSlot) => void;
+  onDelete: (slot: SaveSlot) => void;
   volume: number;
   onVolumeChange: (v: number) => void;
 };
@@ -39,34 +42,20 @@ export function GameWindow({
   saves,
   onSave,
   onLoad,
+  onDelete,
   volume,
   onVolumeChange,
 }: GameWindowProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [volumeOpen, setVolumeOpen] = useState(false);
-  const [pickerMode, setPickerMode] = useState<'save' | 'load' | null>(null);
-  const isDraggingRef = useRef(false);
-  const volumeRef = useRef<HTMLDivElement>(null);
+  const [pickerMode, setPickerMode] = useState<'save' | 'load' | 'delete' | null>(null);
+  const syncStatus = useSyncStatus();
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handler);
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
-
-  useEffect(() => {
-    if (!volumeOpen) return;
-    const handleDown = (e: PointerEvent) => {
-      if (isDraggingRef.current) return;
-      const el = volumeRef.current;
-      if (el && !el.contains(e.target as Node)) {
-        setVolumeOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', handleDown);
-    return () => document.removeEventListener('pointerdown', handleDown);
-  }, [volumeOpen]);
 
   // Keep the shared canvas ref pointed at the live node: the facade replaces
   // the canvas element directly via replaceWith() on reset(), so React's ref
@@ -93,8 +82,6 @@ export function GameWindow({
   const isLoading = status === 'loading';
   const isIdle = status === 'idle';
   const canControl = !isIdle && !isLoading;
-
-  const volIcon = volume === 0 ? 'volume_off' : volume < 50 ? 'volume_down' : 'volume_up';
 
   return (
     <main className="flex-[3] flex justify-center items-center relative bg-black/20 rounded-xl overflow-hidden border border-white/5">
@@ -147,6 +134,7 @@ export function GameWindow({
 
         {/* Top-right: play/pause + fullscreen */}
         <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+          {isAuthenticated && <SyncChip status={syncStatus} />}
           <button
             type="button"
             onClick={canControl ? (isPlaying ? onPause : onPlay) : undefined}
@@ -218,52 +206,23 @@ export function GameWindow({
               {isAuthenticated ? 'file_open' : 'lock'}
             </span>
           </button>
+          <button
+            type="button"
+            onClick={isAuthenticated ? () => setPickerMode('delete') : undefined}
+            disabled={!isAuthenticated || isSaveBusy || saves.length === 0}
+            aria-label="Delete state"
+            title="Delete"
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-black/40 backdrop-blur-md text-white/60 border border-white/10 hover:bg-red-900/40 hover:text-red-300 transition-all active:scale-95 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden="true">
+              delete
+            </span>
+          </button>
         </div>
 
         {/* Bottom-right: volume */}
-        <div
-          ref={volumeRef}
-          className="absolute bottom-3 right-3 z-40 flex flex-col items-center gap-1"
-        >
-          {volumeOpen && (
-            <div
-              className="bg-black/70 backdrop-blur-md border border-white/10 rounded-lg px-2 py-3 flex flex-col items-center gap-2 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <span className="text-[10px] font-bold text-primary tabular-nums">{volume}%</span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={volume}
-                onPointerDown={() => {
-                  isDraggingRef.current = true;
-                }}
-                onPointerUp={() => {
-                  isDraggingRef.current = false;
-                }}
-                onInput={(e) => onVolumeChange(Number((e.target as HTMLInputElement).value))}
-                className="console-range console-range-vertical w-5 h-32 cursor-pointer"
-                style={{ ['--vol' as string]: `${volume}%` }}
-                aria-label="Master audio volume"
-              />
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => setVolumeOpen((v) => !v)}
-            aria-label="Volume"
-            className={cn(
-              'w-10 h-10 rounded-full flex items-center justify-center border transition-all active:scale-95 shadow-lg',
-              volumeOpen
-                ? 'bg-primary/20 text-primary border-primary/40'
-                : 'bg-black/40 backdrop-blur-md text-white/60 border-white/10 hover:bg-black/60 hover:text-white',
-            )}
-          >
-            <span className="material-symbols-outlined text-base" aria-hidden="true">
-              {volIcon}
-            </span>
-          </button>
+        <div className="absolute bottom-3 right-3 z-40">
+          <VolumeControl volume={volume} onChange={onVolumeChange} />
         </div>
 
         {pickerMode && (
@@ -271,11 +230,48 @@ export function GameWindow({
             open
             mode={pickerMode}
             saves={saves}
-            onSelect={(slot) => (pickerMode === 'save' ? onSave(slot) : onLoad(slot))}
+            onSelect={(slot) => {
+              if (pickerMode === 'save') onSave(slot);
+              else if (pickerMode === 'load') onLoad(slot);
+              else onDelete(slot);
+            }}
             onClose={() => setPickerMode(null)}
           />
         )}
       </div>
     </main>
+  );
+}
+
+const SYNC_META: Record<SyncStatus, { icon: string; label: string; spin: boolean; tone: string }> =
+  {
+    idle: { icon: 'cloud_off', label: 'Local only', spin: false, tone: 'text-white/40' },
+    syncing: { icon: 'restart_alt', label: 'Syncing…', spin: true, tone: 'text-primary' },
+    synced: { icon: 'cloud_done', label: 'Synced', spin: false, tone: 'text-teal-300' },
+    error: { icon: 'cloud_off', label: 'Sync failed', spin: false, tone: 'text-red-400' },
+  };
+
+function SyncChip({ status }: { status: SyncStatus }) {
+  const meta = SYNC_META[status];
+  return (
+    <span
+      title={meta.label}
+      className="flex items-center gap-1 px-2 h-8 rounded-full bg-black/40 backdrop-blur-md border border-white/10"
+    >
+      <span
+        className={cn(
+          'material-symbols-outlined text-base',
+          meta.tone,
+          meta.spin && 'animate-spin',
+        )}
+        style={{ fontVariationSettings: "'FILL' 1" }}
+        aria-hidden="true"
+      >
+        {meta.icon}
+      </span>
+      <span className={cn('text-[10px] font-bold uppercase tracking-widest', meta.tone)}>
+        {meta.label}
+      </span>
+    </span>
   );
 }

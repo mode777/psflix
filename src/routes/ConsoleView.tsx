@@ -30,9 +30,9 @@ export default function ConsoleView() {
   const fatalMsg = emulatorService.getFatal();
 
   const savesQuery = useSaveStates(emulator.activeDisc?.id, emulator.user?.id);
-  const { save, load } = useSaveStateMutation(emulator.activeDisc?.id, emulator.user?.id);
+  const { save, load, remove } = useSaveStateMutation(emulator.activeDisc?.id, emulator.user?.id);
   const saves = savesQuery.data ?? [];
-  const isSaveBusy = save.isPending || load.isPending;
+  const isSaveBusy = save.isPending || load.isPending || remove.isPending;
 
   const handleSave = (slot: SaveSlot) => {
     save.mutate(slot, {
@@ -45,6 +45,13 @@ export default function ConsoleView() {
     load.mutate(slot, {
       onSuccess: () => showToast(`Restored from ${slot}.`, { kind: 'info' }),
       onError: () => showToast('Could not load state.'),
+    });
+  };
+
+  const handleDelete = (slot: SaveSlot) => {
+    remove.mutate(slot, {
+      onSuccess: () => showToast(`Cleared ${slot}.`, { kind: 'info' }),
+      onError: () => showToast('Could not delete state.'),
     });
   };
 
@@ -111,6 +118,7 @@ export default function ConsoleView() {
             saves={saves}
             onSave={handleSave}
             onLoad={handleLoad}
+            onDelete={handleDelete}
             volume={settings.masterVolume}
             onVolumeChange={(v) => emulatorService.setSettings({ masterVolume: v })}
           />

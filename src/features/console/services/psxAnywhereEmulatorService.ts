@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { EmulatorClient } from 'emulator-client';
 import { fileUrl } from '@/lib/pb-files';
+import { queryClient } from '@/lib/queryClient';
 import { showToast } from '@/lib/toast';
 import type { DiscsResponse } from '@/types/pocketbase';
 import type {
@@ -12,12 +13,14 @@ import type {
   PlayerRuntimeState,
   SaveSlot,
   SaveStateInfo,
+  SyncStatus,
 } from '../types';
 import { SAVE_SLOTS } from '../types';
 import type { EmulatorService } from './emulator';
 import { psxAnywhereRepository } from './psxAnywhereRepository';
 
 const SETTINGS_KEY = 'psflix:console-settings';
+const SLOT_ASSIGNMENT_KEY = (userId: string) => `psflix:memcard-slots:${userId}`;
 const DEFAULT_SETTINGS: ConsoleSettings = { crtFilter: true, masterVolume: 85 };
 const DEFAULT_SLOT_ASSIGNMENT: MemorySlotAssignment = { slot1: 'mc-main', slot2: null };
 const AUTO_SAVE_INTERVAL_MS = 5 * 60_000;
@@ -43,6 +46,28 @@ function loadSettings(): ConsoleSettings {
 function persistSettings(settings: ConsoleSettings): void {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // ignore (private mode / quota)
+  }
+}
+
+function loadSlotAssignment(userId: string): MemorySlotAssignment {
+  try {
+    const raw = localStorage.getItem(SLOT_ASSIGNMENT_KEY(userId));
+    if (!raw) return { ...DEFAULT_SLOT_ASSIGNMENT };
+    const parsed = JSON.parse(raw) as Partial<MemorySlotAssignment>;
+    return {
+      slot1: parsed.slot1 === null || typeof parsed.slot1 === 'string' ? parsed.slot1 : 'mc-main',
+      slot2: parsed.slot2 === null || typeof parsed.slot2 === 'string' ? parsed.slot2 : null,
+    };
+  } catch {
+    return { ...DEFAULT_SLOT_ASSIGNMENT };
+  }
+}
+
+function persistSlotAssignment(userId: string, assignment: MemorySlotAssignment): void {
+  try {
+    localStorage.setItem(SLOT_ASSIGNMENT_KEY(userId), JSON.stringify(assignment));
   } catch {
     // ignore (private mode / quota)
   }
@@ -83,12 +108,14 @@ type ServiceState = {
   saveMeta: Record<string, string>;
   /** Bumped whenever the facade replaces the canvas, so listeners re-render. */
   canvasGen: number;
+  syncStatus: SyncStatus;
   setRuntime: (patch: Partial<PlayerRuntimeState>) => void;
   setControllers: (patch: Partial<ControllerPorts>) => void;
   setSettings: (patch: Partial<ConsoleSettings>) => void;
   setSlotAssignment: (userId: string, assignment: MemorySlotAssignment) => void;
   setSaveMeta: (key: string, iso: string) => void;
   bumpCanvas: () => void;
+  setSyncStatus: (status: SyncStatus) => void;
 };
 
 const store = create<ServiceState>((set) => ({
@@ -98,6 +125,7 @@ const store = create<ServiceState>((set) => ({
   slotAssignment: {},
   saveMeta: {},
   canvasGen: 0,
+  syncStatus: 'idle',
   setRuntime: (patch) => set((s) => ({ runtime: { ...s.runtime, ...patch } })),
   setControllers: (patch) => set((s) => ({ controllers: { ...s.controllers, ...patch } })),
   setSettings: (patch) =>
@@ -110,6 +138,7 @@ const store = create<ServiceState>((set) => ({
     set((s) => ({ slotAssignment: { ...s.slotAssignment, [userId]: assignment } })),
   setSaveMeta: (key, iso) => set((s) => ({ saveMeta: { ...s.saveMeta, [key]: iso } })),
   bumpCanvas: () => set((s) => ({ canvasGen: s.canvasGen + 1 })),
+  setSyncStatus: (status) => set({ syncStatus: status }),
 }));
 
 /**
@@ -124,8 +153,14 @@ const store = create<ServiceState>((set) => ({
 export class PsxAnywhereEmulatorService implements EmulatorService {
   private _client: EmulatorClient | null = null;
   private _canvasRef: HTMLCanvasElement | null = null;
+  private _lastDisc: DiscsResponse | null = null;
   private _fatalMsg: string | null = null;
   private _statusBeforeBuffer: PlayerRuntimeState['status'] | null = null;
+  /** Stable per-user slot-assignment refs (memoized across renders). */
+  private readonly _slotCache = new Map<string, MemorySlotAssignment>();
+  /** `${discId}:${slot}` slots deleted this session — hidden from the local
+   *  IDB probe in `listSaveStates` until a new save overwrites them. */
+  private readonly _deletedSlots = new Set<string>();
 
   // --- lifecycle -------------------------------------------------------
 
@@ -196,11 +231,44 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
       if (detail?.canvas) this._canvasRef = detail.canvas;
       store.getState().bumpCanvas();
     });
+    // A local save just landed (manual or auto): the facade queues a cloud
+    // upload for it. Flip to "syncing" and invalidate so the UI shows the
+    // fresh local timestamp; the next `state-sync-complete` flips to "synced".
+    client.addEventListener('state-saved', () => {
+      store.getState().setSyncStatus('syncing');
+      this._invalidateSaveStateQueries();
+    });
+    // A sync pass finished (download + upload reconciled). Mark synced and
+    // invalidate both caches so records from another device appear.
+    client.addEventListener('state-sync-complete', () => {
+      store.getState().setSyncStatus('synced');
+      this._invalidateSaveStateQueries();
+      queryClient.invalidateQueries({ queryKey: ['memory-cards'] });
+    });
+    // Memory card sync started (upload or download).
+    client.addEventListener('memcard-sync-start', () => {
+      store.getState().setSyncStatus('syncing');
+    });
+    // Memory card sync finished.
+    client.addEventListener('memcard-sync-complete', () => {
+      store.getState().setSyncStatus('synced');
+      queryClient.invalidateQueries({ queryKey: ['memory-cards'] });
+    });
+    client.addEventListener('auth-change', (e) => {
+      const detail = (e as CustomEvent).detail as { authed?: boolean } | undefined;
+      store.getState().setSyncStatus(detail?.authed ? 'syncing' : 'idle');
+    });
+  }
+
+  /** Invalidate every save-state query (any disc/user). */
+  private _invalidateSaveStateQueries(): void {
+    queryClient.invalidateQueries({ queryKey: ['save-states'] });
   }
 
   // --- player lifecycle ------------------------------------------------
 
   async loadDisc(disc: DiscsResponse): Promise<void> {
+    this._lastDisc = disc;
     const client = this._requireClient();
     const iso = disc.iso;
     if (!iso) throw new Error('This disc has no game image attached.');
@@ -211,6 +279,7 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
   }
 
   async swapDisc(disc: DiscsResponse): Promise<void> {
+    this._lastDisc = disc;
     const client = this._client;
     if (!client) return this.loadDisc(disc);
     const iso = disc.iso;
@@ -239,10 +308,13 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
 
   async reset(): Promise<void> {
     const client = this._requireClient();
+    const disc = this._lastDisc;
+    if (!disc) throw new Error('No disc loaded — cannot reset.');
     this._fatalMsg = null;
     store.getState().setRuntime({ status: 'loading', elapsedMs: 0 });
     await client.reset();
-    store.getState().setRuntime({ status: 'paused' });
+    await this.loadDisc(disc);
+    await this.play();
   }
 
   getRuntime(): PlayerRuntimeState {
@@ -253,15 +325,63 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     return store.subscribe(listener);
   }
 
+  getSyncStatus(): SyncStatus {
+    return store.getState().syncStatus;
+  }
+
+  subscribeSyncStatus(listener: () => void): () => void {
+    return store.subscribe(listener);
+  }
+
   // --- save states (local IDB via facade) ------------------------------
 
   async listSaveStates(discId: string, userId: string): Promise<SaveStateInfo[]> {
-    void userId;
     const client = this._client;
     if (!client) return [];
+
+    // Cloud records are the source of truth when authenticated: they carry the
+    // real `updatedAt` and survive cross-device. Falls back to local IDB only
+    // when unauthed or if the fetch fails (offline / 401 mid-session).
+    const cloudBySlot = new Map<SaveSlot, SaveStateInfo>();
+    if (psxAnywhereRepository.isAuthenticated()) {
+      try {
+        const serial = await psxAnywhereRepository.lookupDiscSerial(discId);
+        const records = await psxAnywhereRepository.fetchSaveStatesFor(serial, userId);
+        for (const dto of records) {
+          if (
+            dto.type !== 'auto' &&
+            dto.type !== 'slot1' &&
+            dto.type !== 'slot2' &&
+            dto.type !== 'slot3'
+          ) {
+            continue;
+          }
+          const slot = dto.type as SaveSlot;
+          cloudBySlot.set(slot, {
+            id: `${discId}:${slot}`,
+            slot,
+            discId,
+            updatedAt: dto.updated,
+            blocks: 1,
+          });
+        }
+      } catch {
+        // Cloud unavailable — fall through to the local IDB probe.
+      }
+    }
+
+    // Local IDB probe catches saves the facade wrote but hasn't synced yet
+    // (or all saves when unauthed). Slots deleted this session are hidden.
     const meta = store.getState().saveMeta;
     const out: SaveStateInfo[] = [];
     for (const { value: slot } of SAVE_SLOTS) {
+      const cloud = cloudBySlot.get(slot);
+      if (cloud) {
+        this._deletedSlots.delete(`${discId}:${slot}`);
+        out.push(cloud);
+        continue;
+      }
+      if (this._deletedSlots.has(`${discId}:${slot}`)) continue;
       let exists = false;
       try {
         exists = await client.hasState(mapSlot(slot));
@@ -269,12 +389,11 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
         exists = false;
       }
       if (exists) {
-        const key = `${discId}:${slot}`;
         out.push({
           id: `${discId}:${slot}`,
           slot,
           discId,
-          updatedAt: meta[key] ?? new Date(0).toISOString(),
+          updatedAt: meta[`${discId}:${slot}`] ?? new Date(0).toISOString(),
           blocks: 1,
         });
       }
@@ -288,6 +407,7 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     await client.saveState(mapSlot(slot));
     const updatedAt = new Date().toISOString();
     store.getState().setSaveMeta(`${discId}:${slot}`, updatedAt);
+    this._deletedSlots.delete(`${discId}:${slot}`);
     return { id: `${discId}:${slot}`, slot, discId, updatedAt, blocks: 1 };
   }
 
@@ -303,21 +423,51 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
   }
 
   async deleteState(slot: SaveSlot, discId: string, userId: string): Promise<void> {
-    void userId;
-    void discId;
-    void slot;
-    // The facade exposes no delete API in Phase 1; cloud delete is Phase 2.
+    const key = `${discId}:${slot}`;
+    // Hide the slot immediately even though the facade has no local-IDB
+    // delete API — the local copy lingers until overwritten, but the UI no
+    // longer surfaces it for the rest of this session.
+    this._deletedSlots.add(key);
+    if (psxAnywhereRepository.isAuthenticated()) {
+      try {
+        const serial = await psxAnywhereRepository.lookupDiscSerial(discId);
+        await psxAnywhereRepository.deleteSaveStateBySlot(serial, slot, userId);
+      } catch {
+        // Cloud delete failed (already gone / network) — local hide still
+        // applies; surface nothing, the slot is treated as empty now.
+      }
+    }
   }
 
-  // --- memory cards (Phase 1: seeded defaults) -------------------------
+  // --- memory cards (cloud + seeded UX defaults) -----------------------
 
   async listMemoryCards(userId: string): Promise<MemoryCardInfo[]> {
-    void userId;
-    return seedMemoryCards();
+    const seeded = seedMemoryCards();
+    if (!psxAnywhereRepository.isAuthenticated()) return seeded;
+    try {
+      const records = await psxAnywhereRepository.fetchMemcardsForUser(userId);
+      const cloud = records.map<MemoryCardInfo>((r) => ({
+        id: r.id,
+        label: r.label || 'Memory Card',
+        // Block counts require parsing the .mcd header; not cheap to fetch per
+        // card, so return the PS1 card frame (15 blocks) and compute lazily.
+        usedBlocks: 0,
+        totalBlocks: 15,
+      }));
+      return [...cloud, ...seeded];
+    } catch {
+      return seeded;
+    }
   }
 
   getMemorySlotAssignment(userId: string): MemorySlotAssignment {
-    return store.getState().slotAssignment[userId] ?? DEFAULT_SLOT_ASSIGNMENT;
+    const stored = store.getState().slotAssignment[userId];
+    if (stored) return stored;
+    const cached = this._slotCache.get(userId);
+    if (cached) return cached;
+    const loaded = loadSlotAssignment(userId);
+    this._slotCache.set(userId, loaded);
+    return loaded;
   }
 
   setMemorySlot(port: 1 | 2, cardId: string | null, userId: string): void {
@@ -326,7 +476,9 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
       ...current,
       [port === 1 ? 'slot1' : 'slot2']: cardId,
     };
+    this._slotCache.set(userId, next);
     store.getState().setSlotAssignment(userId, next);
+    persistSlotAssignment(userId, next);
   }
 
   subscribeMemorySlots(listener: () => void): () => void {

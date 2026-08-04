@@ -142,7 +142,10 @@ export class EmulatorClient extends EventTarget {
     );
 
     this._memcardStorage = opts.memcardStorage ?? new IdbMemcardStorage();
-    this._memcardSync = new MemcardSync(this._memcardStorage, this._repo, this._log, this._toast);
+    this._memcardSync = new MemcardSync(this._memcardStorage, this._repo, this._log, this._toast, {
+      onSyncStart: () => this.dispatchEvent(new CustomEvent('memcard-sync-start')),
+      onSyncComplete: () => this.dispatchEvent(new CustomEvent('memcard-sync-complete')),
+    });
 
     this._biosStorage = opts.biosStorage ?? new LocalBiosStorage();
 

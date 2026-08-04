@@ -29,6 +29,8 @@ export class MemcardSync {
   private readonly _log: (level: string, msg: string) => void;
   private readonly _showToast: (msg: string) => void;
   private readonly _hash: (buf: ArrayBuffer) => Promise<string>;
+  private readonly _onSyncStart: (() => void) | null;
+  private readonly _onSyncComplete: (() => void) | null;
 
   private _pendingDownload: Promise<void> | null = null;
   private _lastUploadedHash: string | null = null;
@@ -42,13 +44,19 @@ export class MemcardSync {
     repo: Repository,
     log: (level: string, msg: string) => void,
     showToast: (msg: string) => void,
-    opts?: { hashFn?: (buf: ArrayBuffer) => Promise<string> },
+    opts?: {
+      hashFn?: (buf: ArrayBuffer) => Promise<string>;
+      onSyncStart?: () => void;
+      onSyncComplete?: () => void;
+    },
   ) {
     this._storage = storage;
     this._repo = repo;
     this._log = log;
     this._showToast = showToast;
     this._hash = opts?.hashFn ?? sha256Hex;
+    this._onSyncStart = opts?.onSyncStart ?? null;
+    this._onSyncComplete = opts?.onSyncComplete ?? null;
   }
 
   // ── Public API ──────────────────────────────────────────────────
@@ -112,12 +120,15 @@ export class MemcardSync {
 
     try {
       this._log('info', 'memcard-sync: downloading cloud memcard…');
+      this._onSyncStart?.();
       const { buf } = await this._repo.downloadMemcard(userId, MEMCARD_LABEL);
       await this._storage.save(MEMCARD_SLOT, buf);
       this._log('info', `memcard-sync: cloud memcard loaded (${buf.byteLength} bytes)`);
       this._showToast('Memcard synced');
+      this._onSyncComplete?.();
     } catch (e: unknown) {
       this._log('warn', `memcard-sync: download failed: ${formatErr(e)}`);
+      this._onSyncComplete?.();
     }
   }
 
@@ -149,14 +160,17 @@ export class MemcardSync {
       }
 
       this._log('info', 'memcard-sync: dirty export detected, uploading…');
+      this._onSyncStart?.();
       const userId = this._repo.getCurrentUserId();
       if (!userId) return;
 
       await this._repo.uploadMemcard(buf, userId, MEMCARD_LABEL);
       this._lastUploadedHash = hash;
       this._log('info', 'memcard-sync: memcard uploaded');
+      this._onSyncComplete?.();
     } catch (e: unknown) {
       this._log('warn', `memcard-sync: upload failed: ${formatErr(e)}`);
+      this._onSyncComplete?.();
       // Leave _lastUploadedHash unchanged — will retry on next dirty export.
     } finally {
       this._uploading = false;

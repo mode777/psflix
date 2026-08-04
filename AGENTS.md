@@ -77,16 +77,17 @@ The mocks in `psflix_design/<view>/code.html` already encode the Tailwind config
 - For file URLs, build them with the PocketBase client helper, not by string concatenation against the base URL.
 - The build emits a static SPA via `npm run build`; verify it with `npm run verify:build`. New code must keep these green.
 
-## Emulator integration (Phase 1: local-only IDB)
+## Emulator integration (cloud sync live)
 
-The console (`/play/:firstDiscSerial`) runs a real PS1 emulator. Spec + phased plan live in `specs/emulator-integration/` (`spec.md`, `phase-1.md`, `phase-2.md`). Read them before touching the console feature.
+The console (`/play/:firstDiscSerial`) runs a real PS1 emulator. Spec + phased plan live in `specs/emulator-integration/` (`spec.md`, `phase-1.md`, `phase-2.md`) — Phases 1 (local IDB) and 2 (PocketBase cloud sync) are both complete. Read them before touching the console feature.
 
 - **Vendored facade**: `src/vendor/psxanywhere/{emulator,client,repository}` is a clean-cut copy of PSxAnywhere (treated as a black box — do not import back into PSflix). Three path aliases (`emulator-core`, `emulator-client`, `repository`) resolve it; the only external runtime dep is `pocketbase` (already present). ESLint ignores this tree; `tsconfig.audio-worklet.json` type-checks the worklet `.js` files separately. The static core `public/pcsx_rearmed.{js,wasm}` is served at the origin root.
-- **Adapters** (PSflix code in `src/features/console/services/`): `PsxAnywhereEmulatorService` wraps `EmulatorClient` and backs the `emulatorService` singleton; `PsxAnywhereRepository` implements PSxAnywhere's `Repository` over PSflix's `pb` singleton (one auth source). Phase 1 stubs cloud sync — saves/memcards persist to IndexedDB only.
+- **Adapters** (PSflix code in `src/features/console/services/`): `PsxAnywhereEmulatorService` wraps `EmulatorClient` and backs the `emulatorService` singleton; `PsxAnywhereRepository` implements PSxAnywhere's `Repository` over PSflix's `pb` singleton (one auth source). The vendored sync engines (`SaveStateStore`, `SaveStateSyncEngine`, `MemcardSync`) drive cloud sync against the repository — sign-in triggers a download pass, dirty memcard exports + local saves are uploaded (debounced), and conflicts resolve last-write-wins. The repository also exposes two adapter-only helpers (`deleteSaveStateBySlot`, `fetchMemcardsForUser`) that are intentionally NOT on the upstream `Repository` interface.
+- **Cloud sync UX**: `state-saved` → `syncStatus:'syncing'` + invalidate `['save-states']`; `state-sync-complete` → `syncStatus:'synced'` + invalidate both `['save-states']` and `['memory-cards']`. A `SyncChip` in the `GameWindow` header surfaces this (idle/syncing/synced/error). The shared react-query client lives in `src/lib/queryClient.ts` so the non-React service can invalidate. Memory-card slot assignment persists to `localStorage` (`psflix:memcard-slots:<userId>`); memcard block counts are lazy (cloud cards show `0/15`).
 - **Canvas**: `GameWindow` mounts a stable `<canvas>`; `useEmulator` runs the boot order (attach → resume → loadDisc) as one sequenced async chain. The facade swaps the canvas on `reset()`; the ref is re-bound via `emulatorService.getCanvas()`.
 - **Cross-origin isolation** (non-negotiable): `SharedArrayBuffer` requires `COOP: same-origin`, `COEP: require-corp`, `CORP: same-origin` on every response. Vite sends them in dev (`vite.config.ts`); prod needs a reverse proxy in front of PocketBase (deployed via Flux, out of repo). Verify `self.crossOriginIsolated === true` in the browser.
 - **BIOS**: the facade fetches `SCPH1001.BIN` from the `consoles` collection at `loadDisc` time (public read, no auth header).
-- Phase 2 wires cloud sync of `save_state` + `memory_cards`; until then those collections are read-untouched.
+- `save_state` and `memory_cards` are owner-only and now read/written by the repository; auth is required for cloud ops (the facade gates on `isAuthenticated()`). The facade has no local-IDB delete API, so `deleteState` removes the cloud record and hides the slot for the session (the local copy lingers until overwritten).
 
 ## Deployment
 

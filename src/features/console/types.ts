@@ -2,6 +2,16 @@ import type { SaveStateTypeOptions } from '@/types/pocketbase';
 
 export type PlayerStatus = 'idle' | 'loading' | 'playing' | 'paused';
 
+/**
+ * Cloud-sync status for save states / memory cards. Surfaced via a small
+ * indicator so the user can tell when a local save has finished syncing.
+ * - `idle`: not authenticated, or no sync has run yet.
+ * - `syncing`: a sync pass is in flight (upload queued after a local save).
+ * - `synced`: the last sync pass completed successfully.
+ * - `error`: a sync error was reported by the facade.
+ */
+export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
+
 export type ControllerType = 'none' | 'standard' | 'dualshock' | 'mouse';
 
 export type SaveSlot = SaveStateTypeOptions;
