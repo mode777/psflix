@@ -6,4 +6,4 @@
 
 ## Load/save-state should not show context menu
 
-## Mode loa
+## Move controller config to header, simplyfy disk select

@@ -24,37 +24,39 @@ export function DiscSelector({ discs, activeDisc, onChange }: DiscSelectorProps)
   }, [open]);
 
   if (discs.length === 0 || !activeDisc) return null;
-  const activeLabel = `Disc ${activeDisc.index ?? 1}`;
+  const activeLabel = `Disc ${(activeDisc.index ?? 0) + 1}`;
   const isMulti = discs.length > 1;
+
+  const trigger = (
+    <div className="px-3 py-1 bg-white/5 border border-white/10 rounded-full flex items-center gap-2">
+      <span
+        className="material-symbols-outlined text-sm text-green-400"
+        style={{ fontVariationSettings: "'FILL' 1" }}
+        aria-hidden="true"
+      >
+        album
+      </span>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+        {activeLabel}
+      </span>
+      {isMulti && (
+        <span className="material-symbols-outlined text-base text-white/40">expand_more</span>
+      )}
+    </div>
+  );
 
   return (
     <div className="flex items-center gap-1">
-      <div className="px-3 py-1 bg-white/5 border border-white/10 rounded-full flex items-center gap-2">
-        <span
-          className="material-symbols-outlined text-sm text-green-400"
-          style={{ fontVariationSettings: "'FILL' 1" }}
-          aria-hidden="true"
-        >
-          album
-        </span>
-        <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-          {activeLabel}
-        </span>
-      </div>
-
-      {isMulti && (
+      {isMulti ? (
         <div className="relative" ref={menuRef}>
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-haspopup="menu"
             aria-expanded={open}
-            className="ml-1 p-1 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center"
+            className="cursor-pointer"
           >
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">
-              Change
-            </span>
-            <span className="material-symbols-outlined text-lg text-white/40">expand_more</span>
+            {trigger}
           </button>
 
           {open && (
@@ -63,7 +65,7 @@ export function DiscSelector({ discs, activeDisc, onChange }: DiscSelectorProps)
               className="absolute right-0 mt-2 z-50 glass-panel rounded-xl border border-white/10 py-1 min-w-[180px] shadow-2xl"
             >
               {discs.map((disc) => {
-                const label = `Disc ${disc.index ?? 1}`;
+                const label = `Disc ${(disc.index ?? 0) + 1}`;
                 const isActive = disc.id === activeDisc.id;
                 return (
                   <button
@@ -104,6 +106,8 @@ export function DiscSelector({ discs, activeDisc, onChange }: DiscSelectorProps)
             </div>
           )}
         </div>
+      ) : (
+        trigger
       )}
     </div>
   );
