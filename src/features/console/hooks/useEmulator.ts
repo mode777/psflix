@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import { useGame } from '@/features/games/useGame';
 import { useAuthStore } from '@/features/auth/store';
@@ -19,6 +19,11 @@ function sortByIndex(discs: DiscsResponse[]): DiscsResponse[] {
  * The canvas ref is owned by ConsoleView and shared with GameWindow so the
  * boot order (attach → resume → loadDisc) runs as one sequenced async chain,
  * avoiding races between sibling effects.
+ *
+ * The boot effect keys off a stable `hasData` boolean (not the raw query data
+ * or the `discs` array, whose identities change every render / on refetch);
+ * that way the effect runs exactly once per mount and the `cancelled` flag
+ * only trips on real unmount — not on every parent re-render.
  */
 export function useEmulator(
   firstDiscSerial: string | undefined,
@@ -30,35 +35,73 @@ export function useEmulator(
   const user = useAuthStore((s) => s.user);
   const bootedRef = useRef(false);
 
-  const discs = sortByIndex(gameQuery.data?.expand?.discs_via_game ?? []);
+  const discs = useMemo(
+    () => sortByIndex(gameQuery.data?.expand?.discs_via_game ?? []),
+    [gameQuery.data],
+  );
   const activeDisc = discs.find((d) => d.id === runtime.currentDiscId) ?? discs[0] ?? null;
 
+  // The boot IIFE needs the values that are live *when data arrives*, but the
+  // effect must run exactly once per mount. Capture them in refs so the effect
+  // can key off a stable `hasData` boolean without re-triggering on every
+  // parent re-render or react-query refetch (which would otherwise flip
+  // `cancelled = true` and strand the session on `idle`).
+  const resumeRef = useRef(resume);
+  resumeRef.current = resume;
+  const userRef = useRef(user);
+  userRef.current = user;
+  const initialDiscRef = useRef<DiscsResponse | null>(null);
+  if (!initialDiscRef.current && discs.length > 0) initialDiscRef.current = discs[0];
+
+  const hasData = !!gameQuery.data && discs.length > 0;
+
   useEffect(() => {
-    if (bootedRef.current || !gameQuery.data || discs.length === 0) return;
+    if (bootedRef.current || !hasData) return;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const initial = initialDiscRef.current;
+    if (!canvas || !initial) return;
     bootedRef.current = true;
     emulatorService.destroy();
-    const initial = discs[0];
+    const resumeNow = resumeRef.current;
+    const userNow = userRef.current;
+    let cancelled = false;
 
     void (async () => {
       try {
         await emulatorService.attachCanvas(canvas);
       } catch (err) {
         console.error('Emulator bootstrap failed:', err);
-        showToast('Could not start the emulator core.', { kind: 'error' });
+        if (!cancelled) showToast('Could not start the emulator core.', { kind: 'error' });
         return;
       }
-      if (resume && user) {
+      if (cancelled) return;
+      if (resumeNow && userNow) {
         try {
-          await emulatorService.loadState('auto', initial.id, user.id);
+          await emulatorService.loadState('auto', initial.id, userNow.id);
         } catch {
           showToast('No saved progress found — starting a fresh session.', { kind: 'info' });
         }
       }
+      if (cancelled) return;
       await emulatorService.loadDisc(initial);
     })();
-  }, [gameQuery.data, discs, resume, user, canvasRef]);
+
+    return () => {
+      cancelled = true;
+    };
+    // Boot inputs come from refs; only `hasData` flips the effect on/off.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasData]);
+
+  // Tear down the live emulator session when leaving the console view.
+  // Empty-deps so this only fires on real unmount (and the dev StrictMode
+  // re-mount); the boot guard is reset so a return visit re-attaches cleanly.
+  useEffect(() => {
+    return () => {
+      bootedRef.current = false;
+      emulatorService.destroy();
+    };
+  }, []);
 
   const switchDisc = useCallback((disc: DiscsResponse) => {
     emulatorService.swapDisc(disc).catch((err) => {
