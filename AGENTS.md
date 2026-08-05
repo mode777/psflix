@@ -11,6 +11,7 @@ psflix_design/      Design drafts — HTML mocks + design tokens (do not regener
   details_view/     Single-game detail view mock
   design/DESIGN.md  Obsidian Console design system (colors, type, spacing, components)
 pocketbase-docs/    Local PocketBase reference docs (mirror of pocketbase.io docs)
+docs/               Migrated PSxAnywhere emulator reference docs (see docs/emulator/README.md)
 pb_schema.json      PocketBase collection schema export — source of truth for backend shape
 src/                React app (routes, components, features, hooks, lib, types)
 scripts/            Build-time helpers (verify-build.mjs boots the dist/ artifact and curls it)
@@ -80,6 +81,8 @@ The mocks in `psflix_design/<view>/code.html` already encode the Tailwind config
 ## Emulator integration (cloud sync live)
 
 The console (`/play/:firstDiscSerial`) runs a real PS1 emulator. Spec + phased plan live in `specs/emulator-integration/` (`spec.md`, `phase-1.md`, `phase-2.md`) — Phases 1 (local IDB) and 2 (PocketBase cloud sync) are both complete. Read them before touching the console feature.
+
+**Migrated emulator reference docs:** the PSxAnywhere **architecture and API docs were migrated** into `docs/emulator/` (indexed by its `README.md`) and adapted to the vendored tree at `src/vendor/psxanywhere/` — note it vendors a **newer revision** than some upstream checkouts (the client layer is the single `EmulatorClient` facade + storage ports; there is no `app.ts`/`StateStore`/`stateDb`/`MemcardStore`/`canvas.ts`). Docs cover: thread model + SABs + `MSG.*` protocol (`architecture.md`), the `Emulator`/`EmulatorClient` API (`api.md`), the worker/C side (`worker.md`), the streaming cache (`stream.md`), rendering/CRT (`render.md`), input (`input.md`), memory cards (`memcard.md`), save states (`save-state.md`), hosting/COOP-COEP/CHD (`host-app.md`, `host-chd.md`), a known Chromium audio bug (`audio-startup-bug.md`), and test conventions (`testing.md`). Skip `build.md`/`emsdk.md`/`typescript.md`/`ui.md` from upstream — not applicable (PSflix doesn't rebuild the core; its own React UI + TS/lint conventions supersede them).
 
 - **Vendored facade**: `src/vendor/psxanywhere/{emulator,client,repository}` is a clean-cut copy of PSxAnywhere (treated as a black box — do not import back into PSflix). Three path aliases (`emulator-core`, `emulator-client`, `repository`) resolve it; the only external runtime dep is `pocketbase` (already present). ESLint ignores this tree; `tsconfig.audio-worklet.json` type-checks the worklet `.js` files separately. The static core `public/pcsx_rearmed.{js,wasm}` is served at the origin root.
 - **Adapters** (PSflix code in `src/features/console/services/`): `PsxAnywhereEmulatorService` wraps `EmulatorClient` and backs the `emulatorService` singleton; `PsxAnywhereRepository` implements PSxAnywhere's `Repository` over PSflix's `pb` singleton (one auth source). The vendored sync engines (`SaveStateStore`, `SaveStateSyncEngine`, `MemcardSync`) drive cloud sync against the repository — sign-in triggers a download pass, dirty memcard exports + local saves are uploaded (debounced), and conflicts resolve last-write-wins. The repository also exposes two adapter-only helpers (`deleteSaveStateBySlot`, `fetchMemcardsForUser`) that are intentionally NOT on the upstream `Repository` interface.
