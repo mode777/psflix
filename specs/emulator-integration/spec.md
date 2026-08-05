@@ -373,7 +373,7 @@ Vite `server.headers` (§8.4) sends them on every response. Verify in DevTools: 
 
 ### 9.2 Prod — reverse proxy in front of PocketBase
 
-A nginx (or Caddy) config fronts PocketBase and attaches the three headers on **every** response, including errors (use `always` in nginx). Reference config: `psxanywhere/docs/host-app.md`. Apply via the Flux K8s pipeline (out of scope for this repo per `AGENTS.md`).
+A nginx (or Caddy) config fronts PocketBase and attaches the three headers on **every** response, including errors (use `always` in nginx). Reference config: `docs/emulator/host-app.md` (migrated from `psxanywhere/docs/host-app.md`). Apply via the Flux K8s pipeline (out of scope for this repo per `AGENTS.md`).
 
 ### 9.3 Why `require-corp` is safe here
 
@@ -621,8 +621,12 @@ Wire into `package.json`: `"test:controller-guard": "node scripts/test/controlle
 
 ## 15. Cross-references
 
-- Integrator guide: `psxanywhere/docs/integrate.md`
-- Facade API: `psxanywhere/docs/api.md`
-- Hosting/headers: `psxanywhere/docs/host-app.md`, `host-chd.md`
-- PocketBase backend: `psxanywhere/docs/pocketbase.md`
-- PSflix conventions: `AGENTS.md` (update its Collections table for `consoles`; note emulator is now wired in).
+Migrated emulator reference docs (adapted from `psxanywhere/docs/`, indexed by `docs/emulator/README.md`):
+
+- Facade API: `docs/emulator/api.md`
+- Hosting/headers: `docs/emulator/host-app.md`, `host-chd.md`
+- Architecture/SABs/protocol: `docs/emulator/architecture.md`, `worker.md`, `stream.md`, `render.md`
+- Input / memcards / save states: `docs/emulator/input.md`, `memcard.md`, `save-state.md`
+- Known audio bug: `docs/emulator/audio-startup-bug.md`
+- PocketBase backend: `pocketbase-docs/` (official mirror) + `AGENTS.md` Collections table (`pb_schema.json` is the source of truth)
+- PSflix conventions: `AGENTS.md` (its Collections table includes `consoles`; the emulator is now wired in).

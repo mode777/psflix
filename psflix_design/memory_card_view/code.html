@@ -1,0 +1,260 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>SYS_CONSOLE_V2 - Memory Manager</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        /* Custom scrollbar for memory card panes to maintain sleek aesthetic */
+        .memory-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .memory-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .memory-scroll::-webkit-scrollbar-thumb {
+            background-color: #44474f; /* outline-variant */
+            border-radius: 4px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#2f4b4e",
+                        "background": "#121317",
+                        "surface-container": "#1e2020",
+                        "surface-container-high": "#292a2d",
+                        "inverse-primary": "#475e90",
+                        "secondary": "#aecccf",
+                        "on-primary": "#152f5e",
+                        "on-primary-fixed": "#001943",
+                        "on-primary-fixed-variant": "#2e4676",
+                        "surface-variant": "#343538",
+                        "surface-container-lowest": "#0d0e11",
+                        "on-surface-variant": "#c1c6d8",
+                        "surface": "#121414",
+                        "secondary-fixed": "#c9e8eb",
+                        "primary": "#d9e2ff",
+                        "on-error": "#690005",
+                        "tertiary-fixed": "#ffdbce",
+                        "on-background": "#e3e2e6",
+                        "inverse-surface": "#e3e2e6",
+                        "surface-tint": "#afc6ff",
+                        "surface-dim": "#121317",
+                        "error": "#ffb4ab",
+                        "surface-container-highest": "#343538",
+                        "tertiary-fixed-dim": "#ffb598",
+                        "on-secondary": "#183537",
+                        "surface-bright": "#38393d",
+                        "primary-container": "#afc6ff",
+                        "success-accent": "#00f1fe",
+                        "outline-variant": "#44474f",
+                        "on-tertiary-fixed": "#360f01",
+                        "secondary-fixed-dim": "#aecccf",
+                        "secondary-container": "#2f4b4e",
+                        "primary-fixed": "#d9e2ff",
+                        "error-container": "#93000a",
+                        "surface-container-low": "#1a1b1f",
+                        "on-surface": "#e3e2e6",
+                        "on-secondary-fixed": "#011f22",
+                        "tertiary-container": "#ffb598",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary": "#512310",
+                        "on-tertiary-container": "#7a442e",
+                        "on-primary-container": "#3a5283",
+                        "on-secondary-container": "#9dbbbd",
+                        "on-tertiary-fixed-variant": "#6c3924",
+                        "outline": "#8c90a1",
+                        "primary-fixed-dim": "#afc6ff",
+                        "inverse-on-surface": "#2f3034",
+                        "tertiary": "#ffdbce"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "margin-mobile": "20px",
+                        "container-max": "1440px",
+                        "unit": "8px",
+                        "margin-desktop": "64px"
+                    },
+                    "fontFamily": {
+                        "headline-xl": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "headline-xl-mobile": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-xl": ["48px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "label-caps": ["12px", { "lineHeight": "1", "letterSpacing": "0.1em", "fontWeight": "700" }],
+                        "headline-xl-mobile": ["32px", { "lineHeight": "1.2", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "display-lg": ["72px", { "lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "800" }],
+                        "headline-lg": ["32px", { "lineHeight": "1.3", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background min-h-screen flex font-body-md text-body-md overflow-hidden">
+<!-- SideNavBar (Shared Component) -->
+
+<!-- Main Content Wrapper -->
+<div class="flex-1 flex flex-col h-screen overflow-hidden bg-background">
+<!-- TopNavBar (Shared Component) -->
+
+<!-- Main Canvas: Memory Manager Dual Pane -->
+<main class="flex-1 overflow-hidden p-margin-desktop max-w-container-max mx-auto w-full flex flex-col gap-gutter">
+<!-- Page Header -->
+<div class="flex justify-between items-end shrink-0">
+<div>
+<h2 class="font-headline-xl text-headline-xl text-on-surface">Data Management</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-2">Manage save files and storage allocation across mounted media.</p>
+</div>
+</div>
+<!-- Dual Pane Grid -->
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-gutter flex-1 min-h-0">
+<!-- PANE 1: SLOT A (Active Card) -->
+<section class="bg-surface-container border border-outline-variant rounded-xl flex flex-col overflow-hidden relative">
+<!-- Subtle Glassmorphic Top Highlight -->
+<div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary-container to-transparent opacity-20"></div>
+<!-- Slot Header -->
+<div class="p-6 border-b border-outline-variant bg-surface-container-low shrink-0 flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[28px]" style="font-variation-settings: &quot;FILL&quot; 1;">sd_card</span>
+<h3 class="font-body-lg text-body-lg font-semibold text-on-surface">Slot 1: Main Drive</h3>
+</div>
+<div class="flex gap-2"><button class="p-2 rounded-lg bg-surface-variant hover:bg-surface-container-high border border-outline-variant text-on-surface transition-colors flex items-center justify-center group" title="Eject Card">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">eject</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-variant hover:bg-surface-container-high border border-outline-variant text-on-surface transition-colors flex items-center justify-center group" title="Rename Card">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">edit</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-variant hover:bg-error-container hover:border-error border border-outline-variant text-on-surface transition-colors flex items-center justify-center group" title="Format Card">
+<span class="material-symbols-outlined group-hover:text-error transition-colors">delete_sweep</span>
+</button>
+</div>
+</div>
+<!-- Capacity Bar -->
+<div class="flex flex-col gap-2 mt-2">
+<div class="flex justify-between items-center">
+<span class="font-label-caps text-label-caps text-on-surface-variant">Capacity Used</span>
+<span class="font-label-caps text-label-caps text-primary">12 / 15 Blocks</span>
+</div>
+<div class="w-full h-2 bg-surface-variant rounded-full overflow-hidden border border-outline-variant">
+<!-- Capacity Fill (80%) -->
+<div class="h-full bg-primary rounded-full relative" style="width: 80%;">
+<div class="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.2)_25%,rgba(255,255,255,0.2)_50%,transparent_50%,transparent_75%,rgba(255,255,255,0.2)_75%,rgba(255,255,255,0.2)_100%)] bg-[length:20px_20px]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Save List -->
+<div class="flex-1 overflow-y-auto memory-scroll p-4 flex flex-col gap-3">
+<!-- Save Entry 1 -->
+<div class="group flex items-center p-3 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container-high hover:border-outline transition-all duration-200">
+<div class="w-14 h-14 rounded overflow-hidden shrink-0 border border-outline-variant bg-surface-variant relative">
+<img class="w-full h-full object-cover" data-alt="A high-resolution macro shot of a sleek, dark metallic cyberpunk circuit board with a glowing blue neon emblem in the center, representing a sci-fi game save icon. The lighting is cinematic, casting deep shadows over intricate mechanical details against a pitch-black background. High contrast, professional UI asset style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBp9F3R-cPl8VuzWMz-TAU3-yGtKGXodXUCkuW7OMRa7hAXoevYlMoJpQlJsIpsL5s8qKchGYLto37SQAjdFHcS1gY2PtZ-Tl5zTjf6sD5Y11WmFrzvz8lugVvJVtIx0vuXQguLItjo732gD3_yud-K-GtxF_kd03I0WKeFwdX524poRxLMc-D_KWOLaJIEJW3z6D3lsADnw-wOn7plHKEAyyVR59MO9AHX-7TU7zy89ptH9lW-E-dT">
+</div>
+<div class="ml-4 flex-1 min-w-0">
+<h4 class="font-body-lg text-body-lg text-on-surface truncate">Cyber_Protocol.sav</h4>
+<p class="font-body-md text-body-md text-on-surface-variant truncate">Sector 7 Checkpoint</p>
+</div>
+<div class="flex items-center gap-4 ml-4 shrink-0">
+<div class="bg-surface-variant px-3 py-1 rounded border border-outline-variant">
+<span class="font-label-caps text-label-caps text-on-surface">3 Blocks</span>
+</div>
+<div class="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1"><button class="p-1.5 rounded bg-surface hover:bg-primary-container hover:text-on-primary-container text-on-surface-variant transition-colors border border-transparent hover:border-primary" title="Copy to Slot 2"><span class="material-symbols-outlined text-[20px]">content_copy</span></button><button class="p-1.5 rounded bg-surface hover:bg-primary-container hover:text-on-primary-container text-on-surface-variant transition-colors border border-transparent hover:border-primary" title="Move to Slot 2"><span class="material-symbols-outlined text-[20px]">swap_horiz</span></button><button class="p-1.5 rounded bg-surface hover:bg-error-container hover:text-on-error-container text-on-surface-variant transition-colors border border-transparent hover:border-error" title="Delete Save"><span class="material-symbols-outlined text-[20px]">delete</span></button></div>
+</div>
+</div>
+<!-- Save Entry 2 -->
+<div class="group flex items-center p-3 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container-high hover:border-outline transition-all duration-200">
+<div class="w-14 h-14 rounded overflow-hidden shrink-0 border border-outline-variant bg-surface-variant relative">
+<img class="w-full h-full object-cover" data-alt="A minimalist pixel-art style icon rendered in 3D, featuring a glowing red crystal sword resting on a dark obsidian pedestal. The scene is illuminated by harsh, directional top-lighting creating sharp, dramatic shadows on a dark gray surface. Professional, cinematic game asset design." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAF6YVIy0gC9Fe2N0vJYyyhphoa7vG60wQ_BhjTUGSC_7r14ALp0dNApAvsxdRv_ruP_uy-5Kry_utcyqyQxS95CGvufBvS070GcF0yGHoDnpR1AKbOzelFCtE_uivw0TxnI4RAhRyLnv4yPd2MNCWXNr7PJ0qmE6VuUItqxBX4R3VJN7Rp8D3UJo2mmLgF8pU3P1MB7FaATqdQsm5KInIEMx2AMS7lTVHJKnSiIV0gHFZDT3ssZkec">
+</div>
+<div class="ml-4 flex-1 min-w-0">
+<h4 class="font-body-lg text-body-lg text-on-surface truncate">Akuji_The_Demon.sav</h4>
+<p class="font-body-md text-body-md text-on-surface-variant truncate">Level 4: The Abyss</p>
+</div>
+<div class="flex items-center gap-4 ml-4 shrink-0">
+<div class="bg-surface-variant px-3 py-1 rounded border border-outline-variant">
+<span class="font-label-caps text-label-caps text-on-surface">5 Blocks</span>
+</div>
+<div class="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1"><button class="p-1.5 rounded bg-surface hover:bg-primary-container hover:text-on-primary-container text-on-surface-variant transition-colors border border-transparent hover:border-primary" title="Copy to Slot 2"><span class="material-symbols-outlined text-[20px]">content_copy</span></button><button class="p-1.5 rounded bg-surface hover:bg-primary-container hover:text-on-primary-container text-on-surface-variant transition-colors border border-transparent hover:border-primary" title="Move to Slot 2"><span class="material-symbols-outlined text-[20px]">swap_horiz</span></button><button class="p-1.5 rounded bg-surface hover:bg-error-container hover:text-on-error-container text-on-surface-variant transition-colors border border-transparent hover:border-error" title="Delete Save"><span class="material-symbols-outlined text-[20px]">delete</span></button></div>
+</div>
+</div>
+<!-- Save Entry 3 -->
+<div class="group flex items-center p-3 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container-high hover:border-outline transition-all duration-200">
+<div class="w-14 h-14 rounded overflow-hidden shrink-0 border border-outline-variant bg-surface-variant relative">
+<img class="w-full h-full object-cover" data-alt="A sleek, futuristic racing helmet rendered in dark matte gray with a vibrant cyan visor glow. The object is floating in a void of deep black, under studio lighting that highlights the smooth curves and carbon fiber textures. Cinematic, high-end professional game UI element." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxhzlgkNdZSD0s26hlj8B3ed7Pzp3pDFwDBXoz5M3BsDwoLJ45dixlrKYlVXgNxWjD9Qz9lgp1K-oQdOdr0dWIN__x12zjtce7sYDEhdBbHrs9dfR3lBp_QJxvgiwUPzG6brKofGDNpzY2H1sEuJO50PY88xlSnQWNYU7iGt70XgtO2aV53eU3F-2pKBwdCh7CfNm8B6org4M9XaQrE96ETP1OU-mW-IpGNRT-L9v7Va3WjMtftcVM">
+</div>
+<div class="ml-4 flex-1 min-w-0">
+<h4 class="font-body-lg text-body-lg text-on-surface truncate">Velocity_X.sav</h4>
+<p class="font-body-md text-body-md text-on-surface-variant truncate">Career Profile - 100%</p>
+</div>
+<div class="flex items-center gap-4 ml-4 shrink-0">
+<div class="bg-surface-variant px-3 py-1 rounded border border-outline-variant">
+<span class="font-label-caps text-label-caps text-on-surface">4 Blocks</span>
+</div>
+<div class="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1"><button class="p-1.5 rounded bg-surface hover:bg-primary-container hover:text-on-primary-container text-on-surface-variant transition-colors border border-transparent hover:border-primary" title="Copy to Slot 2"><span class="material-symbols-outlined text-[20px]">content_copy</span></button><button class="p-1.5 rounded bg-surface hover:bg-primary-container hover:text-on-primary-container text-on-surface-variant transition-colors border border-transparent hover:border-primary" title="Move to Slot 2"><span class="material-symbols-outlined text-[20px]">swap_horiz</span></button><button class="p-1.5 rounded bg-surface hover:bg-error-container hover:text-on-error-container text-on-surface-variant transition-colors border border-transparent hover:border-error" title="Delete Save"><span class="material-symbols-outlined text-[20px]">delete</span></button></div>
+</div>
+</div>
+</div>
+</section>
+<!-- PANE 2: SLOT B (Empty State / Uninitialized) -->
+<section class="bg-surface-container border border-outline-variant border-dashed rounded-xl flex flex-col overflow-hidden justify-center items-center p-12 relative bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9IiMzNDM1MzgiIGZpbGwtb3BhY2l0eT0iMC40Ii8+PC9zdmc+')]">
+<div class="flex flex-col items-center text-center max-w-sm"><div class="w-20 h-20 rounded-full border-2 border-outline-variant border-dashed flex items-center justify-center mb-6 bg-surface">
+<span class="material-symbols-outlined text-outline text-[40px]">library_add</span>
+</div>
+<h3 class="font-body-lg text-body-lg font-semibold text-on-surface mb-2">Card Library</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-8">Select a card from your library to mount into Slot 2 or initialize a new storage module.</p>
+<div class="flex flex-col gap-3 w-full">
+<button class="bg-primary hover:bg-primary-container text-on-primary font-body-lg text-body-lg font-semibold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">upload_file</span>
+Mount Existing Card
+</button>
+<button class="bg-surface-variant hover:bg-surface-container-high text-on-surface font-body-md text-body-md font-semibold py-2 px-6 rounded-lg border border-outline-variant transition-colors duration-200 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">add_circle</span>
+Initialize New Card
+</button>
+</div></div>
+</section>
+</div>
+</main>
+</div>
+
+
+</body></html>
