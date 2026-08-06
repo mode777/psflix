@@ -128,15 +128,15 @@ describe('PsxAnywhereEmulatorService — synchronous surface (pre-attach)', () =
     const svc = new PsxAnywhereEmulatorService();
     const a = svc.getMemorySlotAssignment('user-a');
     const b = svc.getMemorySlotAssignment('user-a');
-    expect(a).toEqual({ slot1: 'mc-main', slot2: null });
+    expect(a).toEqual({ slot1: null, slot2: null });
     expect(a).toBe(b);
   });
 
-  it('seeds memory cards when unauthenticated (local-only defaults)', async () => {
+  it('returns no memory cards when unauthenticated (library is in-memory)', async () => {
     setAuthed(null);
     const svc = new PsxAnywhereEmulatorService();
     const cards = await svc.listMemoryCards('user-a');
-    expect(cards.map((c) => c.id)).toEqual(['mc-main', 'mc-rpg']);
+    expect(cards).toEqual([]);
   });
 
   it('listSaveStates returns [] before a client is attached', async () => {
@@ -181,8 +181,8 @@ describe('PsxAnywhereEmulatorService — Phase 2 cloud sync', () => {
     localStorage.clear();
   });
 
-  describe('listMemoryCards (cloud + seeded)', () => {
-    it('returns cloud cards followed by seeded defaults when authed', async () => {
+  describe('listMemoryCards (cloud only)', () => {
+    it('returns cloud cards when authed', async () => {
       setAuthed('u-1');
       stubCollection('memory_cards', {
         getFullList: vi.fn(async () => [
@@ -191,11 +191,11 @@ describe('PsxAnywhereEmulatorService — Phase 2 cloud sync', () => {
       });
       const svc = new PsxAnywhereEmulatorService();
       const cards = await svc.listMemoryCards('u-1');
-      expect(cards.map((c) => c.id)).toEqual(['mc-cloud-1', 'mc-main', 'mc-rpg']);
+      expect(cards.map((c) => c.id)).toEqual(['mc-cloud-1']);
       expect(cards[0]).toMatchObject({ label: 'default', totalBlocks: 15 });
     });
 
-    it('falls back to seeded defaults when the cloud fetch fails', async () => {
+    it('returns [] when the cloud fetch fails', async () => {
       setAuthed('u-1');
       stubCollection('memory_cards', {
         getFullList: vi.fn(async () => {
@@ -204,7 +204,7 @@ describe('PsxAnywhereEmulatorService — Phase 2 cloud sync', () => {
       });
       const svc = new PsxAnywhereEmulatorService();
       const cards = await svc.listMemoryCards('u-1');
-      expect(cards.map((c) => c.id)).toEqual(['mc-main', 'mc-rpg']);
+      expect(cards).toEqual([]);
     });
   });
 

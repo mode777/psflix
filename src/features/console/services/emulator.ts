@@ -72,6 +72,19 @@ export interface EmulatorService {
   setMemorySlot(port: 1 | 2, cardId: string | null, userId: string): void;
   subscribeMemorySlots(listener: () => void): () => void;
 
+  // --- live memory card bytes (session-scoped) ---------------------------
+  /**
+   * Read the current card image for an emulator slot (1 or 2) from the live
+   * core, or null when the slot is empty / the core isn't booted.
+   */
+  exportMemcard(slot: 1 | 2): Promise<Uint8Array | null>;
+  /**
+   * Replace the card image for an emulator slot in the running core. The
+   * facade's own IDB flush (existing behavior) may back it up; the manager
+   * itself never persists.
+   */
+  importMemcard(slot: 1 | 2, buf: ArrayBuffer | Uint8Array): Promise<void>;
+
   // --- controller ports -------------------------------------------------
   getControllerPorts(): ControllerPorts;
   setController(port: 1 | 2, type: ControllerType): void;

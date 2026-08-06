@@ -15,7 +15,7 @@ import type { EmulatorService } from './emulator';
 
 const SETTINGS_KEY = 'psflix:console-settings';
 const DEFAULT_SETTINGS: ConsoleSettings = { crtFilter: true, masterVolume: 85 };
-const DEFAULT_SLOT_ASSIGNMENT: MemorySlotAssignment = { slot1: 'mc-main', slot2: null };
+const DEFAULT_SLOT_ASSIGNMENT: MemorySlotAssignment = { slot1: null, slot2: null };
 const SIM_LATENCY_MS = 450;
 
 function delay(ms: number): Promise<void> {
@@ -52,11 +52,13 @@ type MockState = {
   runtime: PlayerRuntimeState;
   saves: Record<string, SaveStateInfo[]>;
   memoryCards: MemoryCardInfo[];
+  memcardBytes: Record<number, Uint8Array | null>;
   slotAssignment: Record<string, MemorySlotAssignment>;
   controllers: ControllerPorts;
   settings: ConsoleSettings;
   setRuntime: (patch: Partial<PlayerRuntimeState>) => void;
   setSaves: (key: string, saves: SaveStateInfo[]) => void;
+  setMemcardBytes: (slot: number, bytes: Uint8Array | null) => void;
   setSlotAssignment: (userId: string, assignment: MemorySlotAssignment) => void;
   setControllers: (patch: Partial<ControllerPorts>) => void;
   setSettings: (patch: Partial<ConsoleSettings>) => void;
@@ -67,21 +69,22 @@ function savesKey(discId: string, userId: string): string {
 }
 
 function seedMemoryCards(): MemoryCardInfo[] {
-  return [
-    { id: 'mc-main', label: 'Main Save', usedBlocks: 12, totalBlocks: 15 },
-    { id: 'mc-rpg', label: 'RPG Card', usedBlocks: 8, totalBlocks: 15 },
-  ];
+  // No seeded defaults — see psxAnywhereEmulatorService.seedMemoryCards.
+  return [];
 }
 
 const useMockStore = create<MockState>((set) => ({
   runtime: { status: 'idle', currentDiscId: null, elapsedMs: 0 },
   saves: {},
   memoryCards: seedMemoryCards(),
+  memcardBytes: { 1: null, 2: null },
   slotAssignment: {},
   controllers: { port1: 'standard', port2: 'none' },
   settings: loadSettings(),
   setRuntime: (patch) => set((s) => ({ runtime: { ...s.runtime, ...patch } })),
   setSaves: (key, saves) => set((s) => ({ saves: { ...s.saves, [key]: saves } })),
+  setMemcardBytes: (slot, bytes) =>
+    set((s) => ({ memcardBytes: { ...s.memcardBytes, [slot]: bytes } })),
   setSlotAssignment: (userId, assignment) =>
     set((s) => ({ slotAssignment: { ...s.slotAssignment, [userId]: assignment } })),
   setControllers: (patch) => set((s) => ({ controllers: { ...s.controllers, ...patch } })),
@@ -221,6 +224,15 @@ export class MockEmulatorService implements EmulatorService {
 
   subscribeMemorySlots(listener: () => void): () => void {
     return useMockStore.subscribe(listener);
+  }
+
+  async exportMemcard(slot: 1 | 2): Promise<Uint8Array | null> {
+    const bytes = useMockStore.getState().memcardBytes[slot];
+    return bytes ? new Uint8Array(bytes) : null;
+  }
+
+  async importMemcard(slot: 1 | 2, buf: ArrayBuffer | Uint8Array): Promise<void> {
+    useMockStore.getState().setMemcardBytes(slot, new Uint8Array(buf));
   }
 
   getControllerPorts(): ControllerPorts {

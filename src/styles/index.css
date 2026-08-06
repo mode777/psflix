@@ -98,6 +98,20 @@
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
+  .memory-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #414655 transparent;
+  }
+  .memory-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .memory-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .memory-scroll::-webkit-scrollbar-thumb {
+    background-color: #414655;
+    border-radius: 4px;
+  }
   .crt-overlay {
     pointer-events: none;
     background:

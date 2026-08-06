@@ -18,7 +18,7 @@ describe('console sync hooks', () => {
     const { getByTestId } = render(
       <Probe id="slots" hook={() => useMemorySlotAssignment('user-1')} />,
     );
-    expect(getByTestId('slots').textContent).toContain('mc-main');
+    expect(getByTestId('slots').textContent).toContain('slot1');
   });
 
   it('useMemorySlotAssignment is stable across re-renders for the same user', () => {

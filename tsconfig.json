@@ -25,7 +25,8 @@
       "@/*": ["src/*"],
       "emulator-core": ["src/vendor/psxanywhere/emulator/index"],
       "emulator-client": ["src/vendor/psxanywhere/client/index"],
-      "repository": ["src/vendor/psxanywhere/repository/index"]
+      "repository": ["src/vendor/psxanywhere/repository/index"],
+      "mcrreader": ["src/vendor/mcrreader/index"]
     }
   },
   "include": ["src"],

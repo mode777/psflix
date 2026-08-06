@@ -5,6 +5,7 @@ import { EnvironmentPanel } from './EnvironmentPanel';
 type ControlsPanelProps = {
   userId?: string;
   isAuthenticated: boolean;
+  onMemory: () => void;
   onOptions: () => void;
   onPowerOff: () => void;
 };
@@ -12,6 +13,7 @@ type ControlsPanelProps = {
 export function ControlsPanel({
   userId,
   isAuthenticated,
+  onMemory,
   onOptions,
   onPowerOff,
 }: ControlsPanelProps) {
@@ -26,24 +28,36 @@ export function ControlsPanel({
         </p>
       )}
 
-      <div className="mt-auto pt-4 flex gap-3">
+      <div className="mt-auto pt-4 flex flex-col gap-3">
         <button
           type="button"
-          onClick={onOptions}
-          className="flex-1 py-3 bg-white/5 border border-white/5 rounded text-white/60 text-xs font-bold uppercase hover:bg-white/10 transition-colors"
+          onClick={onMemory}
+          className="flex items-center justify-center gap-2 py-3 bg-white/5 border border-white/5 rounded text-white/60 text-xs font-bold uppercase hover:bg-white/10 transition-colors"
         >
-          Options
+          <span className="material-symbols-outlined text-base" aria-hidden="true">
+            sd_card
+          </span>
+          Memory Manager
         </button>
-        <button
-          type="button"
-          onClick={onPowerOff}
-          className={cn(
-            'flex-1 py-3 bg-red-900/20 border border-red-900/30 text-red-400 rounded',
-            'text-xs font-bold uppercase hover:bg-red-900/30 transition-colors',
-          )}
-        >
-          Power Off
-        </button>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onOptions}
+            className="flex-1 py-3 bg-white/5 border border-white/5 rounded text-white/60 text-xs font-bold uppercase hover:bg-white/10 transition-colors"
+          >
+            Options
+          </button>
+          <button
+            type="button"
+            onClick={onPowerOff}
+            className={cn(
+              'flex-1 py-3 bg-red-900/20 border border-red-900/30 text-red-400 rounded',
+              'text-xs font-bold uppercase hover:bg-red-900/30 transition-colors',
+            )}
+          >
+            Power Off
+          </button>
+        </div>
       </div>
     </aside>
   );

@@ -11,6 +11,7 @@ export default defineConfig({
       'emulator-core': path.resolve(__dirname, './src/vendor/psxanywhere/emulator/index.ts'),
       'emulator-client': path.resolve(__dirname, './src/vendor/psxanywhere/client/index.ts'),
       repository: path.resolve(__dirname, './src/vendor/psxanywhere/repository/index.ts'),
+      mcrreader: path.resolve(__dirname, './src/vendor/mcrreader/index.ts'),
     },
   },
   server: {

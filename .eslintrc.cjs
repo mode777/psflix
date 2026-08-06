@@ -13,6 +13,7 @@ module.exports = {
     '.eslintrc.cjs',
     'src/types/pocketbase.ts',
     'src/vendor/psxanywhere',
+    'src/vendor/mcrreader',
     'tests/vendor/psxanywhere',
     'scripts/test',
   ],

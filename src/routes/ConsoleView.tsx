@@ -11,6 +11,7 @@ import { GameWindow } from '@/features/console/components/GameWindow';
 import { ControlsPanel } from '@/features/console/components/ControlsPanel';
 import { DiscSelector } from '@/features/console/components/DiscSelector';
 import { OptionsDialog } from '@/features/console/components/OptionsDialog';
+import { MemoryManagerDialog } from '@/features/console/components/memory/MemoryManagerDialog';
 import { ConsoleSkeleton } from '@/features/console/components/ConsoleSkeleton';
 import { useState } from 'react';
 import type { SaveSlot } from '@/features/console/types';
@@ -27,6 +28,7 @@ export default function ConsoleView() {
   const emulator = useEmulator(firstDiscSerial, resume, canvasRef);
   const settings = useConsoleSettings();
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const fatalMsg = emulatorService.getFatal();
 
   const savesQuery = useSaveStates(emulator.activeDisc?.id, emulator.user?.id);
@@ -148,6 +150,7 @@ export default function ConsoleView() {
           <ControlsPanel
             userId={user?.id}
             isAuthenticated={isAuthenticated}
+            onMemory={() => setMemoryOpen(true)}
             onOptions={() => setOptionsOpen(true)}
             onPowerOff={powerOff}
           />
@@ -155,6 +158,7 @@ export default function ConsoleView() {
       </main>
 
       <OptionsDialog open={optionsOpen} onClose={() => setOptionsOpen(false)} />
+      <MemoryManagerDialog open={memoryOpen} onClose={() => setMemoryOpen(false)} />
     </>
   );
 }

@@ -23,7 +23,7 @@ import { psxAnywhereRepository } from './psxAnywhereRepository';
 const SETTINGS_KEY = 'psflix:console-settings';
 const SLOT_ASSIGNMENT_KEY = (userId: string) => `psflix:memcard-slots:${userId}`;
 const DEFAULT_SETTINGS: ConsoleSettings = { crtFilter: true, masterVolume: 85 };
-const DEFAULT_SLOT_ASSIGNMENT: MemorySlotAssignment = { slot1: 'mc-main', slot2: null };
+const DEFAULT_SLOT_ASSIGNMENT: MemorySlotAssignment = { slot1: null, slot2: null };
 const AUTO_SAVE_INTERVAL_MS = 5 * 60_000;
 
 function loadSettings(): ConsoleSettings {
@@ -58,7 +58,7 @@ function loadSlotAssignment(userId: string): MemorySlotAssignment {
     if (!raw) return { ...DEFAULT_SLOT_ASSIGNMENT };
     const parsed = JSON.parse(raw) as Partial<MemorySlotAssignment>;
     return {
-      slot1: parsed.slot1 === null || typeof parsed.slot1 === 'string' ? parsed.slot1 : 'mc-main',
+      slot1: parsed.slot1 === null || typeof parsed.slot1 === 'string' ? parsed.slot1 : null,
       slot2: parsed.slot2 === null || typeof parsed.slot2 === 'string' ? parsed.slot2 : null,
     };
   } catch {
@@ -75,10 +75,9 @@ function persistSlotAssignment(userId: string, assignment: MemorySlotAssignment)
 }
 
 function seedMemoryCards(): MemoryCardInfo[] {
-  return [
-    { id: 'mc-main', label: 'Main Save', usedBlocks: 12, totalBlocks: 15 },
-    { id: 'mc-rpg', label: 'RPG Card', usedBlocks: 8, totalBlocks: 15 },
-  ];
+  // No seeded UX-default cards: the memory-card manager owns the session's
+  // cards in-memory, and cloud records are the only persistence here.
+  return [];
 }
 
 /** Map a PSflix SaveSlot ('auto'|'slot1'|'slot2'|'slot3') onto the facade's Slot. */
@@ -484,6 +483,26 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
 
   subscribeMemorySlots(listener: () => void): () => void {
     return store.subscribe(listener);
+  }
+
+  // --- live memory card bytes (session-scoped) ---------------------------
+
+  async exportMemcard(slot: 1 | 2): Promise<Uint8Array | null> {
+    const client = this._client;
+    if (!client) return null;
+    try {
+      return await client.exportMemcard(slot);
+    } catch {
+      return null;
+    }
+  }
+
+  async importMemcard(slot: 1 | 2, buf: ArrayBuffer | Uint8Array): Promise<void> {
+    const client = this._client;
+    if (!client) return;
+    const view = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+    // `view` is always backed by a plain ArrayBuffer (never a SAB here).
+    await client.importMemcard(slot, view.slice().buffer as ArrayBuffer);
   }
 
   // --- controller ports ------------------------------------------------
