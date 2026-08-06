@@ -9,7 +9,7 @@ import type {
   SaveStateInfo,
   SyncStatus,
 } from '../types';
-import type { DiscsResponse } from '@/types/pocketbase';
+import type { DiscsResponse, GamesRegionOptions } from '@/types/pocketbase';
 
 /**
  * EmulatorService is the contract for everything the console (playing) view
@@ -38,9 +38,14 @@ export interface EmulatorService {
   getCanvas(): HTMLCanvasElement | null;
   /** Last fatal error message, or null. Read at render time (status flips to idle on fatal). */
   getFatal(): string | null;
-  loadDisc(disc: DiscsResponse): Promise<void>;
+  /**
+   * Load a disc into the (already-booted) core. When the catalog `region` is
+   * available it is forwarded to the worker so PAL discs are paced at 50 fps
+   * (see psxRegion.ts) — without it PAL games run too fast with cut-off audio.
+   */
+  loadDisc(disc: DiscsResponse, region?: GamesRegionOptions): Promise<void>;
   /** Swap to another disc of a multi-disc game without re-booting the core. */
-  swapDisc(disc: DiscsResponse): Promise<void>;
+  swapDisc(disc: DiscsResponse, region?: GamesRegionOptions): Promise<void>;
   /** Begin playback. Must be invoked from within a user gesture (click). */
   play(): Promise<void>;
   pause(): void;

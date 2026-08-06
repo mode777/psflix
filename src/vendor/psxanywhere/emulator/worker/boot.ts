@@ -15,7 +15,15 @@ import {
   getTextDecoder,
   getCdromId,
 } from './context';
-import { sampleRate, readFps, recomputeMasterN, onAudioTick } from './audio-clock';
+import {
+  sampleRate,
+  readFps,
+  recomputeMasterN,
+  onAudioTick,
+  PAL_FPS,
+  isPalCdrom,
+  writeAvFps,
+} from './audio-clock';
 import { startMemcardFlushPoll } from './memcard';
 
 export async function handleInit(ctx: WorkerContext, msg: any, paintFromSab: () => void) {
@@ -171,6 +179,20 @@ export function tryInitAndLoad(ctx: WorkerContext, _paintFromSab: () => void) {
     ctx.initInProgress = false;
     startMemcardFlushPoll(ctx);
     const cdromId = getCdromId(ctx);
+    // The core only publishes fps once, pre-load (as NTSC 60). If the host
+    // didn't flag PAL, detect it from the disc serial now and re-lock the
+    // frame clock so PAL runs at 50 fps instead of ~20% fast.
+    if (ctx.timingFps === 0 && isPalCdrom(cdromId)) {
+      ctx.timingFps = PAL_FPS;
+      logInfo(`worker: PAL detected from cdromId=${cdromId}; forcing fps=${PAL_FPS}`);
+    }
+    if (ctx.timingFps > 0) {
+      writeAvFps(ctx, ctx.timingFps);
+      if (ctx.workletSampleRate > 0 && !ctx.wholeFile) {
+        ctx.workletQuantum = ctx.workletQuantum > 0 ? ctx.workletQuantum : 128;
+        recomputeMasterN(ctx, 'post-load');
+      }
+    }
     post({ type: MSG.LOADED, cdromId });
   }
 
@@ -205,6 +227,9 @@ export function handleCd(ctx: WorkerContext, msg: any) {
   }
   ctx.cfunc.fs_write_file('/game.chd', new Uint8Array(0));
   ctx.chdTotal = msg && typeof msg.chdTotal === 'number' ? msg.chdTotal : 0;
+  if (typeof msg?.pal === 'boolean') {
+    ctx.timingFps = msg.pal ? PAL_FPS : 0;
+  }
   if (ctx.sabs.controlSAB && ctx.sabs.dataSAB) {
     ctx.Module._streamingControlSab = ctx.sabs.controlSAB;
     ctx.Module._streamingDataSab = ctx.sabs.dataSAB;
@@ -224,6 +249,9 @@ export function handleCd(ctx: WorkerContext, msg: any) {
 
 export function handleSwapDisc(ctx: WorkerContext, msg: any) {
   const { slot, path, chdTotal: swapChdTotal, needsRegister } = msg;
+  if (typeof msg?.pal === 'boolean') {
+    ctx.timingFps = msg.pal ? PAL_FPS : 0;
+  }
   logInfo(
     `worker: handleSwapDisc: slot=${slot} path=${path} chdTotal=${swapChdTotal} needsRegister=${needsRegister}`,
   );

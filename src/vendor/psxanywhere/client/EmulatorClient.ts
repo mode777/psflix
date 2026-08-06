@@ -57,6 +57,15 @@ export interface DiscRequest {
   biosUrl?: string;
   bios?: ArrayBuffer;
   onProgress?: (fraction: number) => void;
+  /**
+   * PAL frame pacing hint (true = pace the audio clock at 50 fps). Set by the
+   * host from the catalog region / disc serial so PAL games don't run fast.
+   */
+  pal?: boolean;
+}
+
+export interface SwapDiscRequest {
+  pal?: boolean;
 }
 
 export class EmulatorClient extends EventTarget {
@@ -84,6 +93,7 @@ export class EmulatorClient extends EventTarget {
   private _isRunning = false;
   private _resetInProgress = false;
   private _gen = 0;
+  private _pal = false;
 
   private _bindings: { type: string; handler: EventListener }[] = [];
   private _gamepadAbort: AbortController | null = null;
@@ -385,6 +395,7 @@ export class EmulatorClient extends EventTarget {
   async loadDisc(req: DiscRequest): Promise<void> {
     if (!this._emu) throw new Error('EmulatorClient: not booted');
     this._currentDiscSerial = req.serial ?? null;
+    this._pal = !!req.pal;
 
     let bios: ArrayBuffer;
     if (req.bios) {
@@ -399,15 +410,17 @@ export class EmulatorClient extends EventTarget {
       bios,
       chdUrl: req.chdUrl,
       onProgress: req.onProgress,
+      pal: this._pal,
     });
 
     if (!this._currentDiscSerial) this._currentDiscSerial = this._emu.getCdromId() || null;
     this._stateSync.setActiveDisc(this._currentDiscSerial);
   }
 
-  async swapDisc(url: string): Promise<void> {
+  async swapDisc(url: string, opts?: SwapDiscRequest): Promise<void> {
     if (!this._emu) throw new Error('EmulatorClient: not booted');
-    await this._emu.swapDisc(url);
+    if (opts && typeof opts.pal === 'boolean') this._pal = opts.pal;
+    await this._emu.swapDisc(url, { pal: this._pal });
   }
 
   getCdromId(): string | null {

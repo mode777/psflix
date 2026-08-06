@@ -75,6 +75,13 @@ export interface WorkerContext {
   frameAccumulator: number;
   workletQuantum: number;
   workletSampleRate: number;
+  /**
+   * Override for the frame-clock fps (0 = use the core's reported AV_FPS).
+   * Set to PAL_FPS (50) for PAL discs so they don't run too fast — the core
+   * publishes 60 fps at host_init (pre-load) and never republishes after the
+   * game's PAL region is detected.
+   */
+  timingFps: number;
   lastW: number;
   lastH: number;
   lastPitch: number;

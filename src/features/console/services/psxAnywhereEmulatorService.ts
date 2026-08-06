@@ -3,7 +3,7 @@ import { EmulatorClient } from 'emulator-client';
 import { fileUrl } from '@/lib/pb-files';
 import { queryClient } from '@/lib/queryClient';
 import { showToast } from '@/lib/toast';
-import type { DiscsResponse } from '@/types/pocketbase';
+import type { DiscsResponse, GamesRegionOptions } from '@/types/pocketbase';
 import type {
   ConsoleSettings,
   ControllerPorts,
@@ -17,6 +17,7 @@ import type {
 } from '../types';
 import { SAVE_SLOTS } from '../types';
 import type { EmulatorService } from './emulator';
+import { isPAL } from './psxRegion';
 import { psxAnywhereRepository } from './psxAnywhereRepository';
 
 const SETTINGS_KEY = 'psflix:console-settings';
@@ -267,26 +268,26 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
 
   // --- player lifecycle ------------------------------------------------
 
-  async loadDisc(disc: DiscsResponse): Promise<void> {
+  async loadDisc(disc: DiscsResponse, region?: GamesRegionOptions): Promise<void> {
     this._lastDisc = disc;
     const client = this._requireClient();
     const iso = disc.iso;
     if (!iso) throw new Error('This disc has no game image attached.');
     const chdUrl = fileUrl(disc, iso);
     store.getState().setRuntime({ status: 'loading', currentDiscId: disc.id, elapsedMs: 0 });
-    await client.loadDisc({ chdUrl, serial: disc.serial });
+    await client.loadDisc({ chdUrl, serial: disc.serial, pal: isPAL(region, disc.serial) });
     store.getState().setRuntime({ status: 'paused' });
   }
 
-  async swapDisc(disc: DiscsResponse): Promise<void> {
+  async swapDisc(disc: DiscsResponse, region?: GamesRegionOptions): Promise<void> {
     this._lastDisc = disc;
     const client = this._client;
-    if (!client) return this.loadDisc(disc);
+    if (!client) return this.loadDisc(disc, region);
     const iso = disc.iso;
     if (!iso) throw new Error('This disc has no game image attached.');
     const chdUrl = fileUrl(disc, iso);
     store.getState().setRuntime({ status: 'loading', currentDiscId: disc.id });
-    await client.swapDisc(chdUrl);
+    await client.swapDisc(chdUrl, { pal: isPAL(region, disc.serial) });
     store.getState().setRuntime({ status: 'paused' });
   }
 

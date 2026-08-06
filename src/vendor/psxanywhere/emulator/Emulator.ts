@@ -38,6 +38,12 @@ export interface LoadDiscRequest {
   bios: ArrayBuffer;
   chdUrl: string;
   onProgress?: (fraction: number) => void;
+  /** PAL pacing hint — forwarded to the worker so it clocks at 50 fps. */
+  pal?: boolean;
+}
+
+export interface SwapDiscRequest {
+  pal?: boolean;
 }
 
 type EmulatorState =
@@ -94,6 +100,7 @@ export class Emulator extends EventTarget {
   _nextDiscSlot: number;
   _cdromId: string | null;
   _swapDiscPromise: PendingPromise<void> | null;
+  _pal: boolean;
 
   _initResolve: (() => void) | null;
   _initReject: ((err: Error) => void) | null;
@@ -167,6 +174,7 @@ export class Emulator extends EventTarget {
     this._nextDiscSlot = 0;
     this._cdromId = null;
     this._swapDiscPromise = null;
+    this._pal = false;
 
     // pending init/loadDisc resolvers
     this._initResolve = null;
@@ -430,6 +438,7 @@ export class Emulator extends EventTarget {
     }
     if (!chdUrl) throw new Error('loadDisc: chdUrl is required');
     const onProgress = typeof req.onProgress === 'function' ? req.onProgress : null;
+    this._pal = !!req.pal;
 
     try {
       const biosBuf = bios.slice(0);
@@ -463,7 +472,12 @@ export class Emulator extends EventTarget {
       this._discSlotMap.set(chdUrl, { slot: 0, path: '/game.chd', chdTotal: remote0.total });
       this._currentDiscUrl = chdUrl;
       this._nextDiscSlot = 1;
-      this._worker!.postMessage({ type: MSG.CD, url: chdUrl, chdTotal: remote0.total });
+      this._worker!.postMessage({
+        type: MSG.CD,
+        url: chdUrl,
+        chdTotal: remote0.total,
+        pal: this._pal,
+      });
       this._log('info', 'loadDisc: cd message posted (no buffer)');
       if (onProgress) {
         this._progressInterval = setInterval(() => {
@@ -718,11 +732,12 @@ export class Emulator extends EventTarget {
    * Registers the disc with the core on first use (up to 8 unique URLs).
    * Streaming path only.
    */
-  async swapDisc(url: string) {
+  async swapDisc(url: string, opts?: SwapDiscRequest) {
     if (this._destroyed) throw new Error('swapDisc: destroyed');
     if (!url || typeof url !== 'string')
       throw new Error('swapDisc: url must be a non-empty string');
     if (url === this._currentDiscUrl) return;
+    if (opts && typeof opts.pal === 'boolean') this._pal = opts.pal;
     await this._doSwapDisc(url);
   }
 
@@ -754,6 +769,7 @@ export class Emulator extends EventTarget {
       path: entry.path,
       chdTotal: entry.chdTotal,
       needsRegister,
+      pal: this._pal,
     });
 
     await new Promise<void>((resolve, reject) => {

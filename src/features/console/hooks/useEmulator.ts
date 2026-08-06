@@ -5,7 +5,7 @@ import { useAuthStore } from '@/features/auth/store';
 import { showToast } from '@/lib/toast';
 import { emulatorService } from '../services';
 import { useRuntime } from './useRuntime';
-import type { DiscsResponse } from '@/types/pocketbase';
+import type { DiscsResponse, GamesRegionOptions } from '@/types/pocketbase';
 
 function sortByIndex(discs: DiscsResponse[]): DiscsResponse[] {
   return [...discs].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
@@ -50,6 +50,8 @@ export function useEmulator(
   resumeRef.current = resume;
   const userRef = useRef(user);
   userRef.current = user;
+  const regionRef = useRef<GamesRegionOptions | undefined>(undefined);
+  regionRef.current = (gameQuery.data?.region as GamesRegionOptions | undefined) ?? undefined;
   const initialDiscRef = useRef<DiscsResponse | null>(null);
   if (!initialDiscRef.current && discs.length > 0) initialDiscRef.current = discs[0];
 
@@ -83,7 +85,7 @@ export function useEmulator(
         }
       }
       if (cancelled) return;
-      await emulatorService.loadDisc(initial);
+      await emulatorService.loadDisc(initial, regionRef.current);
     })();
 
     return () => {
@@ -104,7 +106,7 @@ export function useEmulator(
   }, []);
 
   const switchDisc = useCallback((disc: DiscsResponse) => {
-    emulatorService.swapDisc(disc).catch((err) => {
+    emulatorService.swapDisc(disc, regionRef.current).catch((err) => {
       console.error('switchDisc failed:', err);
       showToast('Could not switch discs.', { kind: 'error' });
     });

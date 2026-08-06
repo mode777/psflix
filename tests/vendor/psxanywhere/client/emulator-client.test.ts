@@ -421,6 +421,7 @@ describe('EmulatorClient', () => {
       bios,
       chdUrl: 'http://example.com/game.chd',
       onProgress: undefined,
+      pal: false,
     });
     client.destroy();
   });

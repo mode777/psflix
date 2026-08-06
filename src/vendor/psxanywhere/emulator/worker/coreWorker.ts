@@ -38,6 +38,7 @@ const ctx: WorkerContext = {
   frameAccumulator: 0,
   workletQuantum: 0,
   workletSampleRate: 0,
+  timingFps: 0,
   lastW: 0,
   lastH: 0,
   lastPitch: 0,

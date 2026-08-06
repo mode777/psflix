@@ -2,6 +2,23 @@
 
 import { AUDIO_OFF_AV_FPS, audioHeaderView } from '../sab/layout';
 import { WorkerContext, logInfo, logWarn } from './context';
+import { computeTicksPerFrame } from './timing';
+
+export { PAL_FPS, isPalCdrom, computeTicksPerFrame } from './timing';
+
+/** Real-time fps for the frame clock: an explicit PAL override wins, else the
+ *  core-reported AV_FPS (which is only ever published pre-load as NTSC 60). */
+export function effectiveFps(ctx: WorkerContext): number {
+  if (ctx.timingFps > 0) return ctx.timingFps;
+  return readFps(ctx);
+}
+
+/** Overwrite the audioSAB AV_FPS slot so STATS.targetFps / perfWarn are honest. */
+export function writeAvFps(ctx: WorkerContext, fps: number) {
+  if (!ctx.sabs || !ctx.sabs.audioSAB) return;
+  const f64 = new Float64Array(ctx.sabs.audioSAB, AUDIO_OFF_AV_FPS, 1);
+  f64[0] = fps;
+}
 
 export function sampleRate(ctx: WorkerContext): number {
   if (!ctx.sabs || !ctx.sabs.audioSAB) return 0;
@@ -25,10 +42,10 @@ export function recomputeMasterN(ctx: WorkerContext, reason: string) {
   if (!ctx.sabs || !ctx.sabs.audioSAB) return;
   if (ctx.workletSampleRate <= 0) return;
   const sr = sampleRate(ctx);
-  const fps = readFps(ctx);
+  const fps = effectiveFps(ctx);
   if (!(sr > 0) || !(fps > 0)) return;
   const quantum = ctx.workletQuantum > 0 ? ctx.workletQuantum : 128;
-  const tpf = ctx.workletSampleRate / fps / quantum;
+  const tpf = computeTicksPerFrame(ctx.workletSampleRate, fps, quantum);
   const prev = {
     masterN: ctx.masterN,
     ticksPerFrame: ctx.ticksPerFrame,

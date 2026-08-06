@@ -110,13 +110,15 @@ export class MockEmulatorService implements EmulatorService {
     return null;
   }
 
-  async loadDisc(disc: DiscsResponse): Promise<void> {
+  async loadDisc(disc: DiscsResponse, region?: unknown): Promise<void> {
+    void region;
     useMockStore.getState().setRuntime({ status: 'loading', currentDiscId: disc.id, elapsedMs: 0 });
     await delay(SIM_LATENCY_MS);
     useMockStore.getState().setRuntime({ status: 'playing' });
   }
 
-  async swapDisc(disc: DiscsResponse): Promise<void> {
+  async swapDisc(disc: DiscsResponse, region?: unknown): Promise<void> {
+    void region;
     await this.loadDisc(disc);
   }
 
