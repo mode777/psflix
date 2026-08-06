@@ -59,7 +59,8 @@ export class AudioManager {
       });
     }
 
-    await audioCtx.audioWorklet.addModule('/src/vendor/psxanywhere/emulator/audio-worklet.ts');
+    const workletUrl = `${import.meta.env.BASE_URL}audio-worklet.js`;
+    await audioCtx.audioWorklet.addModule(workletUrl);
     this._audioNode = new AudioWorkletNode(audioCtx, 'ring-processor', {
       numberOfInputs: 0,
       numberOfOutputs: 1,
