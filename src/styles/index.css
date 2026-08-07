@@ -112,6 +112,19 @@
     background-color: #414655;
     border-radius: 4px;
   }
+  .game-window-container:fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
+    aspect-ratio: unset !important;
+  }
+  .game-window-container:fullscreen canvas {
+    width: auto !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    aspect-ratio: 4/3 !important;
+  }
   .crt-overlay {
     pointer-events: none;
     background:

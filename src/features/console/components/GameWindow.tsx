@@ -49,6 +49,8 @@ export function GameWindow({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [pickerMode, setPickerMode] = useState<'save' | 'load' | 'delete' | null>(null);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const syncStatus = useSyncStatus();
 
   useEffect(() => {
@@ -56,6 +58,27 @@ export function GameWindow({
     document.addEventListener('fullscreenchange', handler);
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
+
+  useEffect(() => {
+    if (!isFullscreen) {
+      setControlsVisible(true);
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+      return;
+    }
+
+    const showControls = () => {
+      setControlsVisible(true);
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = setTimeout(() => setControlsVisible(false), 3000);
+    };
+
+    showControls();
+    document.addEventListener('mousemove', showControls);
+    return () => {
+      document.removeEventListener('mousemove', showControls);
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    };
+  }, [isFullscreen]);
 
   // Keep the shared canvas ref pointed at the live node: the facade replaces
   // the canvas element directly via replaceWith() on reset(), so React's ref
@@ -87,7 +110,7 @@ export function GameWindow({
     <main className="flex-[3] flex justify-center items-center relative bg-black/20 rounded-xl overflow-hidden border border-white/5">
       <div
         ref={containerRef}
-        className="relative bg-black shadow-2xl overflow-hidden flex items-center justify-center"
+        className="game-window-container relative bg-black shadow-2xl overflow-hidden flex items-center justify-center"
         style={{ aspectRatio: '4 / 3', maxWidth: '100%', maxHeight: '100%' }}
       >
         {/*
@@ -133,7 +156,12 @@ export function GameWindow({
         />
 
         {/* Top-right: play/pause + fullscreen */}
-        <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+        <div
+          className={cn(
+            'absolute top-3 right-3 z-30 flex items-center gap-2 transition-opacity duration-500',
+            isFullscreen && !controlsVisible && 'opacity-0 pointer-events-none',
+          )}
+        >
           {isAuthenticated && <SyncChip status={syncStatus} />}
           <button
             type="button"
@@ -160,7 +188,7 @@ export function GameWindow({
             type="button"
             onClick={toggleFullscreen}
             aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-            className="w-8 h-8 rounded-full flex items-center justify-center bg-black/40 backdrop-blur-md text-primary border border-white/10 hover:bg-black/60 transition-all active:scale-95 shadow-lg"
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-black/40 backdrop-blur-md text-primary border border-white/10 hover:bg-black/60 transition-all active:scale-95 shadow-lg"
           >
             <span className="material-symbols-outlined text-base" aria-hidden="true">
               {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
@@ -169,7 +197,12 @@ export function GameWindow({
         </div>
 
         {/* Bottom-left: system commands (icon-only) */}
-        <div className="absolute bottom-3 left-3 z-30 flex items-center gap-2">
+        <div
+          className={cn(
+            'absolute bottom-3 left-3 z-30 flex items-center gap-2 transition-opacity duration-500',
+            isFullscreen && !controlsVisible && 'opacity-0 pointer-events-none',
+          )}
+        >
           <button
             type="button"
             onClick={canControl ? onReset : undefined}
@@ -221,7 +254,12 @@ export function GameWindow({
         </div>
 
         {/* Bottom-right: volume */}
-        <div className="absolute bottom-3 right-3 z-40">
+        <div
+          className={cn(
+            'absolute bottom-3 right-3 z-40 transition-opacity duration-500',
+            isFullscreen && !controlsVisible && 'opacity-0 pointer-events-none',
+          )}
+        >
           <VolumeControl volume={volume} onChange={onVolumeChange} />
         </div>
 

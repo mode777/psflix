@@ -94,7 +94,7 @@ export function VolumeControl({ volume, onChange }: VolumeControlProps) {
             : 'bg-black/40 backdrop-blur-md text-white/60 border-white/10 hover:bg-black/60 hover:text-white',
         )}
       >
-        <span className="material-symbols-outlined text-base" aria-hidden="true">
+        <span className="material-symbols-outlined text-xl" aria-hidden="true">
           {volIcon}
         </span>
       </button>
