@@ -41,15 +41,17 @@ The mocks in `psflix_design/<view>/code.html` already encode the Tailwind config
 
 ### Collections (from `pb_schema.json`)
 
-| Collection     | Purpose                             | Access                                                         |
-| -------------- | ----------------------------------- | -------------------------------------------------------------- |
-| `users`        | Auth collection (`_pb_users_auth_`) | Self-only (`listRule`/`viewRule` scoped to `@request.auth.id`) |
-| `games`        | A game title                        | Public list/view                                               |
-| `discs`        | One physical disc of a game         | Public; cascade-deletes with `game`                            |
-| `documents`    | Manuals / guides (PDF etc.)         | Public; optional relation to `game`                            |
-| `consoles`     | BIOS host (one record: `SCPH1001`)  | Public read; no public write                                   |
-| `memory_cards` | Per-user memory card image          | Owner only (`@request.auth.id = user.id`)                      |
-| `save_state`   | Per-user save state file            | Owner only; unique on `(type, disc, user)`                     |
+| Collection     | Purpose                             | Access                                                              |
+| -------------- | ----------------------------------- | ------------------------------------------------------------------- |
+| `users`        | Auth collection (`_pb_users_auth_`) | Self-only (`listRule`/`viewRule` scoped to `@request.auth.id`)      |
+| `games`        | A game title                        | Public list/view                                                    |
+| `discs`        | One physical disc of a game         | Public; cascade-deletes with `game`                                 |
+| `documents`    | Manuals / guides (PDF etc.)         | Public; optional relation to `game`                                 |
+| `consoles`     | BIOS host (one record: `SCPH1001`)  | Public read; no public write                                        |
+| `memory_cards` | Per-user memory card image          | Owner only (`@request.auth.id = user.id`)                           |
+| `save_state`   | Per-user save state file            | Owner only; unique on `(type, disc, user)`                          |
+| `favorites`    | User ↔ game favorite link           | Owner only (`@request.auth.id = user.id`); unique on `(user, game)` |
+| `game_discs`   | View: flattened disc for streaming  | Public list/view; read-only view of `games` ⋈ `discs`               |
 
 ### Field gotchas an agent will miss
 
@@ -60,8 +62,12 @@ The mocks in `psflix_design/<view>/code.html` already encode the Tailwind config
 - `save_state.type` select values: `auto`, `slot1`, `slot2`, `slot3` — mirrors PS1 memory card slot convention; `auto` is the autosave slot.
 - `games.languages` and `games.features` are **JSON** fields, not relations — parse client-side, do not try to expand them.
 - `games.screenshots` is `maxSelect: 10`; `discs.iso` and `documents.file` are single files. All file fields come back as filenames and must be resolved via the PocketBase files URL pattern: `/api/files/<collectionId>/<recordId>/<filename>`.
-- `save_state.data` and `memory_cards.data` are required file payloads backing the emulator's cloud sync (Phase 2). Phase 1 persists save states + memory cards to **local IndexedDB** only via the vendored PSxAnywhere facade; the `save_state` / `memory_cards` collections are not written until Phase 2 lands. See `specs/emulator-integration/`.
-- `consoles.bios` is a required single file (`maxSize` 2 MB) — the PS1 BIOS (`SCPH1001.BIN`). Public read matters: the CHD streaming bridge fetches it with no auth header. One record is uploaded.
+- `save_state.data` is a required file payload; `memory_cards.data` is **optional** (`required: false`). Both back the emulator's cloud sync (Phase 2). Phase 1 persists save states + memory cards to **local IndexedDB** only via the vendored PSxAnywhere facade; the `save_state` / `memory_cards` collections are not written until Phase 2 lands. See `specs/emulator-integration/`.
+- `memory_cards.mounted` is a select (`slot1`, `slot2`) marking which slot a card is inserted into.
+- `consoles.bios` is a single file, **optional** (`required: false`), `maxSize` 5 MB — the PS1 BIOS (`SCPH1001.BIN`). Public read matters: the CHD streaming bridge fetches it with no auth header. One record is uploaded.
+- `games.manufacturer_description` is an optional free-text field (the publisher/manufacturer blurb), separate from `games.description` (max 50000 chars).
+- `favorites` is a base collection linking `user` ↔ `game` (both required, cascade-delete) with a unique index on `(user, game)` — a user can favorite a game once. All API rules are scoped to the owner (`@request.auth.id = user.id`), so the client can list/create/delete a user's own favorites directly.
+- `game_discs` is a **view** collection: `viewQuery` joins `games` ⋈ `discs` and exposes `id` = disc `serial`, `title` = `"<game title> (Disc <index+1>)"` (computed string, typed `json`), `file` = `discs.iso`. Public list/view; handy for streaming/CHD disc lookup by serial.
 
 ### Auth & realtime
 

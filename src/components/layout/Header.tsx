@@ -41,13 +41,15 @@ export default function Header() {
                   'hover:scale-105 transition-all duration-300',
                 )}
                 style={{
-                  color: '#E50914',
                   fontFamily: 'Inter, sans-serif',
                   fontStretch: 'condensed',
                   textTransform: 'uppercase',
                 }}
               >
-                PSflix
+                <span style={{ color: '#ff0000' }}>PSF</span>
+                <span style={{ color: '#f5c800' }}>L</span>
+                <span style={{ color: '#00b1a5' }}>I</span>
+                <span style={{ color: '#005da5' }}>X</span>
               </h1>
             </Link>
             <div className="flex items-center gap-4 ml-4">

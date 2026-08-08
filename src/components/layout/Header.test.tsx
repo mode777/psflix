@@ -53,7 +53,7 @@ describe('Header', () => {
     renderHeader();
     const link = screen.getByRole('link', { name: /psflix home/i });
     expect(link).toHaveAttribute('href', '/');
-    expect(screen.getByText('PSflix')).toBeInTheDocument();
+    expect(link.querySelector('h1')?.textContent).toBe('PSFLIX');
   });
 
   it('shows the Account button when unauthenticated and opens SignInDialog', () => {

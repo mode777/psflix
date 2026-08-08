@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GameCard, type GameCardGame } from './GameCard';
 
 vi.mock('@/lib/pb-files', () => ({
@@ -9,9 +10,14 @@ vi.mock('@/lib/pb-files', () => ({
 }));
 
 function renderCard(game: GameCardGame) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0, staleTime: 0 } },
+  });
   return render(
     <MemoryRouter>
-      <GameCard game={game} />
+      <QueryClientProvider client={client}>
+        <GameCard game={game} />
+      </QueryClientProvider>
     </MemoryRouter>,
   );
 }

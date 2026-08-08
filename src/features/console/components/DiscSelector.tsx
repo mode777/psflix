@@ -30,7 +30,7 @@ export function DiscSelector({ discs, activeDisc, onChange }: DiscSelectorProps)
   const trigger = (
     <div className="px-3 py-1 bg-white/5 border border-white/10 rounded-full flex items-center gap-2">
       <span
-        className="material-symbols-outlined text-sm text-green-400"
+        className="material-symbols-outlined text-sm text-favorite"
         style={{ fontVariationSettings: "'FILL' 1" }}
         aria-hidden="true"
       >

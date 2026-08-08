@@ -7,6 +7,7 @@ import { GameCardSkeleton } from '@/components/media/GameCardSkeleton';
 import { GenreChips } from '@/components/media/GenreChips';
 import { SearchBar } from '@/components/media/SearchBar';
 import { AmbientBackground } from '@/components/media/AmbientBackground';
+import { FavoritesRow } from '@/features/favorites/FavoritesRow';
 import { useArrowKeyNav } from '@/hooks/useArrowKeyNav';
 import { cn } from '@/lib/cn';
 
@@ -25,6 +26,7 @@ export default function BrowseView() {
   const [genre, setGenre] = useState('All');
   const deferredSearch = useDeferredValue(search);
   const gridRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLAnchorElement | null)[]>([]);
   const [columns, setColumns] = useState(() =>
     typeof window === 'undefined' ? 2 : getColumnsForWidth(window.innerWidth),
@@ -64,6 +66,21 @@ export default function BrowseView() {
     cardRefs.current.length = itemCount;
   }, [itemCount]);
 
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage && !isError) {
+          void fetchNextPage();
+        }
+      },
+      { rootMargin: '300px 0px' },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
+
   const onActivate = (index: number) => {
     cardRefs.current[index]?.click();
   };
@@ -88,6 +105,8 @@ export default function BrowseView() {
             Browse essential titles from the PlayStation library
           </p>
         </header>
+
+        <FavoritesRow />
 
         <div className="glass-panel rounded-xl p-4 mb-12 flex flex-col md:flex-row gap-4 items-center justify-between border border-white/5">
           <GenreChips genres={genres} value={genre} onChange={setGenre} />
@@ -133,15 +152,15 @@ export default function BrowseView() {
         )}
 
         {hasNextPage && !isError && (
-          <div className="flex justify-center mt-12">
-            <button
-              type="button"
-              onClick={() => fetchNextPage()}
-              disabled={isFetchingNextPage}
-              className="px-6 py-2 rounded-lg bg-primary text-on-primary disabled:opacity-50 hover:bg-primary/90 transition-colors"
-            >
-              {isFetchingNextPage ? 'Loading…' : 'Load more'}
-            </button>
+          <div ref={sentinelRef} className="flex justify-center mt-12" role="status">
+            {isFetchingNextPage && (
+              <span
+                className="material-symbols-outlined animate-spin text-primary text-3xl"
+                aria-hidden="true"
+              >
+                progress_activity
+              </span>
+            )}
           </div>
         )}
       </main>

@@ -12,40 +12,13 @@ import type {
   SyncStatus,
 } from '../types';
 import type { EmulatorService } from './emulator';
+import { loadSettings, saveSettings, loadControllers, saveControllers } from './persistedSlices';
 
-const SETTINGS_KEY = 'psflix:console-settings';
-const DEFAULT_SETTINGS: ConsoleSettings = { crtFilter: true, masterVolume: 85 };
 const DEFAULT_SLOT_ASSIGNMENT: MemorySlotAssignment = { slot1: null, slot2: null };
 const SIM_LATENCY_MS = 450;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function loadSettings(): ConsoleSettings {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return { ...DEFAULT_SETTINGS };
-    const parsed = JSON.parse(raw) as Partial<ConsoleSettings>;
-    return {
-      crtFilter:
-        typeof parsed.crtFilter === 'boolean' ? parsed.crtFilter : DEFAULT_SETTINGS.crtFilter,
-      masterVolume:
-        typeof parsed.masterVolume === 'number'
-          ? Math.min(100, Math.max(0, parsed.masterVolume))
-          : DEFAULT_SETTINGS.masterVolume,
-    };
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
-}
-
-function saveSettings(settings: ConsoleSettings): void {
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  } catch {
-    // ignore (private mode / quota)
-  }
 }
 
 type MockState = {
@@ -79,7 +52,7 @@ const useMockStore = create<MockState>((set) => ({
   memoryCards: seedMemoryCards(),
   memcardBytes: { 1: null, 2: null },
   slotAssignment: {},
-  controllers: { port1: 'standard', port2: 'none' },
+  controllers: loadControllers(),
   settings: loadSettings(),
   setRuntime: (patch) => set((s) => ({ runtime: { ...s.runtime, ...patch } })),
   setSaves: (key, saves) => set((s) => ({ saves: { ...s.saves, [key]: saves } })),
@@ -87,7 +60,12 @@ const useMockStore = create<MockState>((set) => ({
     set((s) => ({ memcardBytes: { ...s.memcardBytes, [slot]: bytes } })),
   setSlotAssignment: (userId, assignment) =>
     set((s) => ({ slotAssignment: { ...s.slotAssignment, [userId]: assignment } })),
-  setControllers: (patch) => set((s) => ({ controllers: { ...s.controllers, ...patch } })),
+  setControllers: (patch) =>
+    set((s) => {
+      const next = { ...s.controllers, ...patch };
+      saveControllers(next);
+      return { controllers: next };
+    }),
   setSettings: (patch) =>
     set((s) => {
       const next = { ...s.settings, ...patch };

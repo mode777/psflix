@@ -38,6 +38,8 @@ const config: Config = {
         'on-error': '#690005',
         'error-container': '#93000a',
         'on-error-container': '#ffdad6',
+        favorite: '#4ade80',
+        'on-favorite': '#042713',
         'primary-fixed': '#d9e2ff',
         'primary-fixed-dim': '#afc6ff',
         'on-primary-fixed': '#001944',

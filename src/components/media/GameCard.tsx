@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 import { fileUrl } from '@/lib/pb-files';
 import { cn } from '@/lib/cn';
+import { FavoriteButton } from '@/features/favorites/FavoriteButton';
 
 export type GameCardGame = {
   id: string;
@@ -49,6 +50,12 @@ export const GameCard = forwardRef<HTMLAnchorElement, GameCardProps>(function Ga
           {game.title}
         </div>
       )}
+      <FavoriteButton
+        gameId={game.id}
+        hoverReveal
+        className="absolute top-2 right-2 z-10 rounded-full bg-black/40 backdrop-blur-md p-1"
+        iconClassName="text-base"
+      />
       <div
         className={cn(
           'absolute inset-0 vignette-overlay flex flex-col justify-end p-4',

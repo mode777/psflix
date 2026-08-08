@@ -14,7 +14,7 @@ export function useGames(filters: GameFilters) {
       pb.collection('games').getList<GameListItem>(pageParam, PER_PAGE, {
         filter: buildGameFilter(filters),
         expand: 'discs',
-        sort: '-created',
+        sort: 'title',
       }),
     initialPageParam: 1,
     getNextPageParam: (last) => (last.page < last.totalPages ? last.page + 1 : undefined),

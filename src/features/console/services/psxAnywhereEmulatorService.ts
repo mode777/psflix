@@ -19,38 +19,11 @@ import { SAVE_SLOTS } from '../types';
 import type { EmulatorService } from './emulator';
 import { isPAL } from './psxRegion';
 import { psxAnywhereRepository } from './psxAnywhereRepository';
+import { loadSettings, saveSettings, loadControllers, saveControllers } from './persistedSlices';
 
-const SETTINGS_KEY = 'psflix:console-settings';
 const SLOT_ASSIGNMENT_KEY = (userId: string) => `psflix:memcard-slots:${userId}`;
-const DEFAULT_SETTINGS: ConsoleSettings = { crtFilter: true, masterVolume: 85 };
 const DEFAULT_SLOT_ASSIGNMENT: MemorySlotAssignment = { slot1: null, slot2: null };
 const AUTO_SAVE_INTERVAL_MS = 5 * 60_000;
-
-function loadSettings(): ConsoleSettings {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return { ...DEFAULT_SETTINGS };
-    const parsed = JSON.parse(raw) as Partial<ConsoleSettings>;
-    return {
-      crtFilter:
-        typeof parsed.crtFilter === 'boolean' ? parsed.crtFilter : DEFAULT_SETTINGS.crtFilter,
-      masterVolume:
-        typeof parsed.masterVolume === 'number'
-          ? Math.min(100, Math.max(0, parsed.masterVolume))
-          : DEFAULT_SETTINGS.masterVolume,
-    };
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
-}
-
-function persistSettings(settings: ConsoleSettings): void {
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  } catch {
-    // ignore (private mode / quota)
-  }
-}
 
 function loadSlotAssignment(userId: string): MemorySlotAssignment {
   try {
@@ -120,18 +93,23 @@ type ServiceState = {
 
 const store = create<ServiceState>((set) => ({
   runtime: { status: 'idle', currentDiscId: null, elapsedMs: 0 },
-  controllers: { port1: 'standard', port2: 'none' },
+  controllers: loadControllers(),
   settings: loadSettings(),
   slotAssignment: {},
   saveMeta: {},
   canvasGen: 0,
   syncStatus: 'idle',
   setRuntime: (patch) => set((s) => ({ runtime: { ...s.runtime, ...patch } })),
-  setControllers: (patch) => set((s) => ({ controllers: { ...s.controllers, ...patch } })),
+  setControllers: (patch) =>
+    set((s) => {
+      const next = { ...s.controllers, ...patch };
+      saveControllers(next);
+      return { controllers: next };
+    }),
   setSettings: (patch) =>
     set((s) => {
       const next = { ...s.settings, ...patch };
-      persistSettings(next);
+      saveSettings(next);
       return { settings: next };
     }),
   setSlotAssignment: (userId, assignment) =>
@@ -161,6 +139,9 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
   /** `${discId}:${slot}` slots deleted this session — hidden from the local
    *  IDB probe in `listSaveStates` until a new save overwrites them. */
   private readonly _deletedSlots = new Set<string>();
+  /** Canvas click → pointer-lock binding (installed while a mouse port is live). */
+  private _pointerLockCanvas: HTMLCanvasElement | null = null;
+  private _pointerLockClickHandler: ((e: MouseEvent) => void) | null = null;
 
   // --- lifecycle -------------------------------------------------------
 
@@ -180,13 +161,14 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     this._client = client;
     this._wireEvents(client);
     await client.boot();
-    // Push current settings into the live core.
-    const { crtFilter, masterVolume } = store.getState().settings;
-    client.setCrt(crtFilter);
-    client.setVolume(masterVolume / 100);
+    // The facade boots with a default standard pad + CRT on, ignoring our
+    // persisted config — push the stored settings + controller ports in.
+    this._applyConfig(client);
+    this._attachPointerLock(canvas);
   }
 
   destroy(): void {
+    this._detachPointerLock();
     this._client?.destroy();
     this._client = null;
     this._canvasRef = null;
@@ -228,7 +210,11 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     });
     client.addEventListener('canvas-replaced', (e) => {
       const detail = (e as CustomEvent).detail as { canvas?: HTMLCanvasElement } | undefined;
-      if (detail?.canvas) this._canvasRef = detail.canvas;
+      if (detail?.canvas) {
+        this._canvasRef = detail.canvas;
+        // The facade swapped the canvas on reset(); re-bind click→lock to it.
+        this._attachPointerLock(detail.canvas);
+      }
       store.getState().bumpCanvas();
     });
     // A local save just landed (manual or auto): the facade queues a cloud
@@ -265,6 +251,63 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     queryClient.invalidateQueries({ queryKey: ['save-states'] });
   }
 
+  /**
+   * Push persisted CRT + volume settings into the live client. These are
+   * client-side (shader toggle / audio gain) and are not reset by the libretro
+   * core, so they can be applied at boot. Controller ports are applied in
+   * `loadDisc()` instead — they are core state wiped by `retro_load_game`.
+   */
+  private _applyConfig(client: EmulatorClient): void {
+    const { crtFilter, masterVolume } = store.getState().settings;
+    client.setCrt(crtFilter);
+    client.setVolume(masterVolume / 100);
+  }
+
+  /** Push a single port's device type into the live core. */
+  private _applyController(client: EmulatorClient, port: 1 | 2, type: ControllerType): void {
+    const device = mapControllerType(type);
+    if (device === 0) {
+      client.clearController(port - 1);
+    } else {
+      client.setController(port - 1, { device, source: 'keyboard' });
+    }
+  }
+
+  /** True when any port currently has the PS1 mouse selected. */
+  private _isMousePortActive(): boolean {
+    const { port1, port2 } = store.getState().controllers;
+    return port1 === 'mouse' || port2 === 'mouse';
+  }
+
+  /**
+   * Bind a click handler to the canvas that locks the pointer when a mouse
+   * port is active. The PS1 mouse needs relative deltas (movementX/Y), which
+   * are only usable while the cursor is captured. PSxAnywhere deliberately
+   * leaves pointer lock to the host; PSflix owns it here.
+   */
+  private _attachPointerLock(canvas: HTMLCanvasElement): void {
+    this._detachPointerLock();
+    const handler = () => {
+      if (this._isMousePortActive() && document.pointerLockElement !== canvas) {
+        // requestPointerLock can reject if called within the browser's brief
+        // exit cooldown; swallow that so a rapid click doesn't throw.
+        canvas.requestPointerLock().catch(() => {});
+      }
+    };
+    canvas.addEventListener('click', handler);
+    this._pointerLockCanvas = canvas;
+    this._pointerLockClickHandler = handler;
+  }
+
+  private _detachPointerLock(): void {
+    if (this._pointerLockCanvas && this._pointerLockClickHandler) {
+      this._pointerLockCanvas.removeEventListener('click', this._pointerLockClickHandler);
+    }
+    this._pointerLockCanvas = null;
+    this._pointerLockClickHandler = null;
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+
   // --- player lifecycle ------------------------------------------------
 
   async loadDisc(disc: DiscsResponse, region?: GamesRegionOptions): Promise<void> {
@@ -275,6 +318,12 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     const chdUrl = fileUrl(disc, iso);
     store.getState().setRuntime({ status: 'loading', currentDiscId: disc.id, elapsedMs: 0 });
     await client.loadDisc({ chdUrl, serial: disc.serial, pal: isPAL(region, disc.serial) });
+    // The core only fully initializes here (host_init → retro_init, then
+    // host_load → retro_load_game); pushing port devices earlier is wiped by
+    // retro_load_game, so apply the persisted controller config *after* load.
+    const { port1, port2 } = store.getState().controllers;
+    this._applyController(client, 1, port1);
+    this._applyController(client, 2, port2);
     store.getState().setRuntime({ status: 'paused' });
   }
 
@@ -313,6 +362,9 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     this._fatalMsg = null;
     store.getState().setRuntime({ status: 'loading', elapsedMs: 0 });
     await client.reset();
+    // reset() recreates the core (new Emulator), which loses CRT/volume and
+    // does not re-call setPortDevice — re-push our stored config.
+    this._applyConfig(client);
     await this.loadDisc(disc);
     await this.play();
   }
@@ -514,12 +566,10 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
   setController(port: 1 | 2, type: ControllerType): void {
     store.getState().setControllers({ [port === 1 ? 'port1' : 'port2']: type });
     const client = this._client;
-    if (!client) return;
-    const device = mapControllerType(type);
-    if (device === 0) {
-      client.clearController(port - 1);
-    } else {
-      client.setController(port - 1, { device, source: 'keyboard' });
+    if (client) this._applyController(client, port, type);
+    // Drop pointer capture when no port is using the mouse anymore.
+    if (!this._isMousePortActive() && document.pointerLockElement) {
+      document.exitPointerLock();
     }
   }
 

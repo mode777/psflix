@@ -8,7 +8,7 @@ export type SearchBarProps = {
 
 export function SearchBar({ value, onChange, placeholder = 'Search library...' }: SearchBarProps) {
   return (
-    <div className="relative w-full md:w-64">
+    <div className="relative w-full md:max-w-2xl">
       <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">
         search
       </span>

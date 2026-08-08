@@ -13,6 +13,7 @@ import { ScreenshotStack } from '@/components/media/ScreenshotStack';
 import { MetadataPanel } from '@/components/media/MetadataPanel';
 import { PdfPopover } from '@/components/media/PdfPopover';
 import { FeaturesChips } from '@/components/media/FeaturesChips';
+import { FavoriteButton } from '@/features/favorites/FavoriteButton';
 
 export default function DetailsView() {
   const { firstDiscSerial } = useParams<{ firstDiscSerial: string }>();
@@ -89,11 +90,18 @@ export default function DetailsView() {
                 {game.title}
               </h1>
               {features.length > 0 && <FeaturesChips features={features} />}
-              {(game.developer || game.publisher || releaseYear) && (
-                <p className="text-on-surface-variant font-body-md font-bold mt-2">
-                  {[game.developer, game.publisher, releaseYear].filter(Boolean).join(' · ')}
-                </p>
-              )}
+              <div className="flex items-center gap-3 mt-2">
+                {(game.developer || game.publisher || releaseYear) && (
+                  <p className="text-on-surface-variant font-body-md font-bold">
+                    {[game.developer, game.publisher, releaseYear].filter(Boolean).join(' · ')}
+                  </p>
+                )}
+                <FavoriteButton
+                  gameId={game.id}
+                  className="rounded-full bg-black/40 backdrop-blur-md p-1 w-8 h-8"
+                  iconClassName="text-lg"
+                />
+              </div>
               <div className="flex flex-wrap gap-4 mt-4">
                 <button
                   type="button"

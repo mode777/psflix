@@ -8,11 +8,12 @@ import { useEmulator } from '@/features/console/hooks/useEmulator';
 import { useConsoleSettings } from '@/features/console/hooks/useConsoleSettings';
 import { useSaveStates, useSaveStateMutation } from '@/features/console/hooks/useSaveStates';
 import { GameWindow } from '@/features/console/components/GameWindow';
-import { ControlsPanel } from '@/features/console/components/ControlsPanel';
 import { DiscSelector } from '@/features/console/components/DiscSelector';
-import { OptionsDialog } from '@/features/console/components/OptionsDialog';
+import { ControllerPortSelector } from '@/features/console/components/ControllerPortSelector';
+import { ConsoleMenu } from '@/features/console/components/ConsoleMenu';
 import { MemoryManagerDialog } from '@/features/console/components/memory/MemoryManagerDialog';
 import { ConsoleSkeleton } from '@/features/console/components/ConsoleSkeleton';
+import { FavoriteButton } from '@/features/favorites/FavoriteButton';
 import { useState } from 'react';
 import type { SaveSlot } from '@/features/console/types';
 import { emulatorService } from '@/features/console/services';
@@ -27,7 +28,6 @@ export default function ConsoleView() {
 
   const emulator = useEmulator(firstDiscSerial, resume, canvasRef);
   const settings = useConsoleSettings();
-  const [optionsOpen, setOptionsOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const fatalMsg = emulatorService.getFatal();
 
@@ -75,7 +75,7 @@ export default function ConsoleView() {
     );
   }
 
-  const { game, activeDisc, discs, runtime, user } = emulator;
+  const { game, activeDisc, discs, runtime } = emulator;
   const releaseYear = game.release ? game.release.slice(0, 4) : '';
   const byline = [game.developer, releaseYear].filter(Boolean).join(' • ');
   const firstScreenshot = game.screenshots?.[0];
@@ -83,8 +83,6 @@ export default function ConsoleView() {
   const backdropUrl = backdropFile
     ? fileUrl({ collectionId: game.collectionId, id: game.id }, backdropFile)
     : undefined;
-
-  const powerOff = () => navigate(`/game/${firstDiscSerial}`);
 
   return (
     <>
@@ -96,13 +94,25 @@ export default function ConsoleView() {
         <header className="flex justify-between items-center gap-4">
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-white truncate">{game.title}</h1>
-            {byline && (
-              <p className="text-xs text-on-surface-variant uppercase tracking-widest font-semibold mt-1">
-                {byline}
-              </p>
-            )}
+            <div className="flex items-center gap-2 mt-1">
+              {byline && (
+                <p className="text-xs text-on-surface-variant uppercase tracking-widest font-semibold">
+                  {byline}
+                </p>
+              )}
+              <FavoriteButton
+                gameId={game.id}
+                className="rounded-full bg-black/40 backdrop-blur-md p-1 w-7 h-7"
+                iconClassName="text-sm"
+              />
+            </div>
           </div>
-          <DiscSelector discs={discs} activeDisc={activeDisc} onChange={emulator.switchDisc} />
+          <div className="flex items-center gap-2 shrink-0">
+            <ControllerPortSelector port={1} />
+            <ControllerPortSelector port={2} />
+            <DiscSelector discs={discs} activeDisc={activeDisc} onChange={emulator.switchDisc} />
+            <ConsoleMenu onMemory={() => setMemoryOpen(true)} />
+          </div>
         </header>
 
         <div className="flex-1 flex flex-col lg:flex-row gap-8 min-h-0">
@@ -147,17 +157,9 @@ export default function ConsoleView() {
               </div>
             </div>
           )}
-          <ControlsPanel
-            userId={user?.id}
-            isAuthenticated={isAuthenticated}
-            onMemory={() => setMemoryOpen(true)}
-            onOptions={() => setOptionsOpen(true)}
-            onPowerOff={powerOff}
-          />
         </div>
       </main>
 
-      <OptionsDialog open={optionsOpen} onClose={() => setOptionsOpen(false)} />
       <MemoryManagerDialog open={memoryOpen} onClose={() => setMemoryOpen(false)} />
     </>
   );
