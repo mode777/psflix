@@ -32,11 +32,17 @@ export function useEmulator(
   resumeSlot: SaveSlot | null,
   discNumber: number,
   canvasRef: MutableRefObject<HTMLCanvasElement | null>,
+  hasStarted: boolean,
 ) {
   const gameQuery = useGame(firstDiscSerial);
   const runtime = useRuntime();
   const user = useAuthStore((s) => s.user);
   const bootedRef = useRef(false);
+  // Whether the player has pressed Play at least once this session. Until then
+  // the console just sits paused on the first frame, so leaving the view must
+  // not write an autosave (nothing meaningful happened yet).
+  const hasStartedRef = useRef(hasStarted);
+  hasStartedRef.current = hasStarted;
 
   const discs = useMemo(
     () => sortByIndex(gameQuery.data?.expand?.discs_via_game ?? []),
@@ -130,6 +136,8 @@ export function useEmulator(
     const onPageHide = () => {
       const { status } = emulatorService.getRuntime();
       if (status !== 'playing' && status !== 'paused') return;
+      // Never-started sessions (player never pressed Play) must not autosave.
+      if (!hasStartedRef.current) return;
       const disc = initialDiscRef.current;
       const user = userRef.current;
       if (!disc) return;

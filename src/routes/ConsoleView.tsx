@@ -50,7 +50,12 @@ export default function ConsoleView() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const emulator = useEmulator(firstDiscSerial, resumeSlot, discNumber, canvasRef);
+  // The player must have pressed Play (large overlay or top-right button) at
+  // least once before leaving the view writes an autosave. Until then the
+  // session just sits paused on the first frame — nothing worth saving.
+  const [hasStarted, setHasStarted] = useState(false);
+
+  const emulator = useEmulator(firstDiscSerial, resumeSlot, discNumber, canvasRef, hasStarted);
   const settings = useConsoleSettings();
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -72,6 +77,7 @@ export default function ConsoleView() {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       currentLocation.pathname !== nextLocation.pathname &&
+      hasStarted &&
       (emulator.runtime.status === 'playing' || emulator.runtime.status === 'paused'),
   );
 
@@ -196,6 +202,8 @@ export default function ConsoleView() {
             backdropUrl={backdropUrl}
             onPlay={emulator.play}
             onPause={emulator.pause}
+            started={hasStarted}
+            onStart={() => setHasStarted(true)}
             isAuthenticated={isAuthenticated}
             isSaveBusy={isSaveBusy}
             saves={saves}

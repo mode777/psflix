@@ -17,6 +17,9 @@ type GameWindowProps = {
   backdropUrl?: string;
   onPlay: () => void;
   onPause: () => void;
+  /** True once the player has pressed Play (large overlay or top-right button). */
+  started: boolean;
+  onStart: () => void;
   isAuthenticated: boolean;
   isSaveBusy: boolean;
   saves: SaveStateInfo[];
@@ -34,6 +37,8 @@ export function GameWindow({
   backdropUrl,
   onPlay,
   onPause,
+  started,
+  onStart,
   isAuthenticated,
   isSaveBusy,
   saves,
@@ -46,7 +51,6 @@ export function GameWindow({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [pickerMode, setPickerMode] = useState<'save' | 'load' | null>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
-  const [hasStarted, setHasStarted] = useState(false);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const syncStatus = useSyncStatus();
 
@@ -110,10 +114,10 @@ export function GameWindow({
   // rest of the session (the flag survives pause/reset and only clears on
   // unmount).
   const handlePlay = () => {
-    setHasStarted(true);
+    onStart();
     onPlay();
   };
-  const showStartOverlay = !hasStarted && status === 'paused';
+  const showStartOverlay = !started && status === 'paused';
 
   return (
     <main className="flex-[3] flex justify-center items-center relative bg-black/20 rounded-xl overflow-hidden border border-white/5">
