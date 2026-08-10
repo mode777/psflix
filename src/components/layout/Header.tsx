@@ -77,15 +77,6 @@ export default function Header() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <button
-              type="button"
-              aria-label="Settings"
-              className="p-2 rounded-full hover:bg-surface-variant/50 active:scale-95 transition-transform group"
-            >
-              <span className="material-symbols-outlined text-on-surface-variant opacity-60 group-hover:text-primary group-hover:opacity-100 group-hover:scale-105 transition-all duration-300">
-                settings
-              </span>
-            </button>
             {isAuthenticated ? (
               <AccountMenu />
             ) : (

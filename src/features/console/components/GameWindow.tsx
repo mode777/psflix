@@ -17,13 +17,11 @@ type GameWindowProps = {
   backdropUrl?: string;
   onPlay: () => void;
   onPause: () => void;
-  onReset: () => void;
   isAuthenticated: boolean;
   isSaveBusy: boolean;
   saves: SaveStateInfo[];
   onSave: (slot: SaveSlot) => void;
   onLoad: (slot: SaveSlot) => void;
-  onDelete: (slot: SaveSlot) => void;
   volume: number;
   onVolumeChange: (v: number) => void;
 };
@@ -36,20 +34,19 @@ export function GameWindow({
   backdropUrl,
   onPlay,
   onPause,
-  onReset,
   isAuthenticated,
   isSaveBusy,
   saves,
   onSave,
   onLoad,
-  onDelete,
   volume,
   onVolumeChange,
 }: GameWindowProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [pickerMode, setPickerMode] = useState<'save' | 'load' | 'delete' | null>(null);
+  const [pickerMode, setPickerMode] = useState<'save' | 'load' | null>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [hasStarted, setHasStarted] = useState(false);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const syncStatus = useSyncStatus();
 
@@ -106,6 +103,18 @@ export function GameWindow({
   const isIdle = status === 'idle';
   const canControl = !isIdle && !isLoading;
 
+  // Before the first Play gesture the player sits paused on the disc's first
+  // frame; surface a prominent centered Start button (the AudioContext must
+  // resume inside a user gesture, so playback can't be auto-started from the
+  // boot chain). Once started, the usual top-right controls take over for the
+  // rest of the session (the flag survives pause/reset and only clears on
+  // unmount).
+  const handlePlay = () => {
+    setHasStarted(true);
+    onPlay();
+  };
+  const showStartOverlay = !hasStarted && status === 'paused';
+
   return (
     <main className="flex-[3] flex justify-center items-center relative bg-black/20 rounded-xl overflow-hidden border border-white/5">
       <div
@@ -147,6 +156,35 @@ export function GameWindow({
           </div>
         )}
 
+        {showStartOverlay && (
+          <button
+            type="button"
+            onClick={handlePlay}
+            aria-label="Start game"
+            className="group absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 cursor-pointer"
+          >
+            <span
+              className={cn(
+                'flex h-24 w-24 items-center justify-center rounded-full shadow-2xl',
+                'bg-gradient-to-br from-inverse-primary to-secondary-container',
+                'transition-transform duration-300 group-hover:scale-110 group-active:scale-95',
+                'ring-4 ring-white/10',
+              )}
+            >
+              <span
+                className="material-symbols-outlined text-5xl text-white"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+                aria-hidden="true"
+              >
+                play_arrow
+              </span>
+            </span>
+            <span className="px-4 py-1.5 rounded-full bg-black/50 backdrop-blur-md text-white text-xs font-bold uppercase tracking-widest border border-white/10">
+              Play
+            </span>
+          </button>
+        )}
+
         <div
           className={cn(
             'crt-overlay absolute inset-0 z-10 transition-opacity duration-300',
@@ -165,7 +203,7 @@ export function GameWindow({
           {isAuthenticated && <SyncChip status={syncStatus} />}
           <button
             type="button"
-            onClick={canControl ? (isPlaying ? onPause : onPlay) : undefined}
+            onClick={canControl ? (isPlaying ? onPause : handlePlay) : undefined}
             disabled={!canControl}
             aria-label={isPlaying ? 'Pause' : 'Play'}
             className={cn(
@@ -205,18 +243,6 @@ export function GameWindow({
         >
           <button
             type="button"
-            onClick={canControl ? onReset : undefined}
-            disabled={!canControl || isSaveBusy}
-            aria-label="Reset game"
-            title="Reset"
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-black/40 backdrop-blur-md text-white/60 border border-white/10 hover:bg-black/60 hover:text-white transition-all active:scale-95 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <span className="material-symbols-outlined text-base" aria-hidden="true">
-              restart_alt
-            </span>
-          </button>
-          <button
-            type="button"
             onClick={isAuthenticated ? () => setPickerMode('save') : undefined}
             disabled={!isAuthenticated || isSaveBusy}
             aria-label="Save state"
@@ -239,18 +265,6 @@ export function GameWindow({
               {isAuthenticated ? 'file_open' : 'lock'}
             </span>
           </button>
-          <button
-            type="button"
-            onClick={isAuthenticated ? () => setPickerMode('delete') : undefined}
-            disabled={!isAuthenticated || isSaveBusy || saves.length === 0}
-            aria-label="Delete state"
-            title="Delete"
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-black/40 backdrop-blur-md text-white/60 border border-white/10 hover:bg-red-900/40 hover:text-red-300 transition-all active:scale-95 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <span className="material-symbols-outlined text-base" aria-hidden="true">
-              delete
-            </span>
-          </button>
         </div>
 
         {/* Bottom-right: volume */}
@@ -270,8 +284,7 @@ export function GameWindow({
             saves={saves}
             onSelect={(slot) => {
               if (pickerMode === 'save') onSave(slot);
-              else if (pickerMode === 'load') onLoad(slot);
-              else onDelete(slot);
+              else onLoad(slot);
             }}
             onClose={() => setPickerMode(null)}
           />

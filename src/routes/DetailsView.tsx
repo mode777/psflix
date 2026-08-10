@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useGame, type GameDetail } from '@/features/games/useGame';
-import { useSaveStates } from '@/features/console/hooks/useSaveStates';
+import { useGameSaveStates } from '@/features/console/hooks/useSaveStates';
+import type { SaveStateInfo } from '@/features/console/types';
 import { useAuthStore } from '@/features/auth/store';
 import { parseGameFeatures } from '@/types/games';
 import type { DiscsResponse, DocumentsResponse } from '@/types/pocketbase';
@@ -26,9 +27,33 @@ export default function DetailsView() {
   const discs: DiscsResponse[] = (game?.expand?.discs_via_game ?? [])
     .slice()
     .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-  const firstDisc = discs[0];
-  const { data: saves } = useSaveStates(firstDisc?.id, user?.id);
-  const hasSave = (saves?.length ?? 0) > 0;
+  // Save states are keyed per-disc, so query across every disc of the game —
+  // a multi-disc title may only have progress on Disc 2+.
+  const saves = useGameSaveStates(discs, user?.id);
+  const latestSave = useMemo<SaveStateInfo | null>(() => {
+    if (saves.length === 0) return null;
+    return saves.reduce((best, s) => (best == null || s.updatedAt > best.updatedAt ? s : best));
+  }, [saves]);
+  const hasSave = !!latestSave;
+  const latestSlot = latestSave?.slot ?? null;
+  // 1-based position (in the index-sorted disc list) of the disc holding the
+  // latest save; drives the `?disc=` param Continue navigates with. Falls back
+  // to Disc 1 when there's no save or the disc can't be located.
+  const latestDiscNumber = useMemo(() => {
+    if (!latestSave) return 1;
+    const idx = discs.findIndex((d) => d.id === latestSave.discId);
+    return idx >= 0 ? idx + 1 : 1;
+  }, [discs, latestSave]);
+
+  const isMultiDisc = discs.length > 1;
+  // The Play dropdown defaults to the disc with the latest save (when one
+  // exists), else Disc 1. A manual pick sticks for the session via the
+  // userOverride guard.
+  const [selectedDisc, setSelectedDisc] = useState(1);
+  const [userOverride, setUserOverride] = useState(false);
+  useEffect(() => {
+    if (!userOverride) setSelectedDisc(latestDiscNumber);
+  }, [latestDiscNumber, userOverride]);
 
   if (isLoading) return <DetailsSkeleton />;
   if (isError || !game) return <DetailsNotFound />;
@@ -102,41 +127,54 @@ export default function DetailsView() {
                   iconClassName="text-lg"
                 />
               </div>
-              <div className="flex flex-wrap gap-4 mt-4">
-                <button
-                  type="button"
-                  aria-label="Play game"
-                  onClick={() => navigate(`/play/${firstDiscSerial}`)}
-                  className={cn(
-                    'bg-primary hover:bg-primary/90 text-on-primary font-body-md px-8 py-3',
-                    'rounded flex items-center gap-2 font-semibold transition-all duration-300',
-                    'hover:scale-105 active:scale-100',
-                  )}
-                >
-                  <span className="material-symbols-outlined" aria-hidden="true">
-                    play_arrow
-                  </span>
-                  Play
-                </button>
-                <button
-                  type="button"
-                  aria-label="Continue saved game"
-                  disabled={!hasSave}
-                  title={
-                    !hasSave ? 'No saved progress yet — save inside the console first' : undefined
-                  }
-                  onClick={() => navigate(`/play/${firstDiscSerial}?resume=1`)}
-                  className={cn(
-                    'btn-ghost text-white font-body-md px-8 py-3 rounded flex items-center gap-2',
-                    'font-semibold transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-40',
-                    'disabled:hover:scale-100',
-                  )}
-                >
-                  <span className="material-symbols-outlined" aria-hidden="true">
-                    resume
-                  </span>
-                  Continue
-                </button>
+              <div className="flex flex-wrap items-center gap-4 mt-4">
+                {isMultiDisc ? (
+                  <MultiDiscPlayButton
+                    discs={discs}
+                    selectedDisc={selectedDisc}
+                    onSelect={(n) => {
+                      setSelectedDisc(n);
+                      setUserOverride(true);
+                    }}
+                    onPlay={() => navigate(`/play/${firstDiscSerial}?disc=${selectedDisc}`)}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    aria-label="Play game"
+                    onClick={() => navigate(`/play/${firstDiscSerial}`)}
+                    className={cn(
+                      'bg-primary hover:bg-primary/90 text-on-primary font-body-md px-8 py-3',
+                      'rounded flex items-center gap-2 font-semibold transition-all duration-300',
+                      'hover:scale-105 active:scale-100',
+                    )}
+                  >
+                    <span className="material-symbols-outlined" aria-hidden="true">
+                      play_arrow
+                    </span>
+                    Play
+                  </button>
+                )}
+                {hasSave && latestSlot && (
+                  <button
+                    type="button"
+                    aria-label="Continue saved game"
+                    onClick={() =>
+                      navigate(
+                        `/play/${firstDiscSerial}?disc=${latestDiscNumber}&resume=${latestSlot}`,
+                      )
+                    }
+                    className={cn(
+                      'btn-ghost text-white font-body-md px-8 py-3 rounded flex items-center gap-2',
+                      'font-semibold transition-all duration-300 hover:scale-105 active:scale-100',
+                    )}
+                  >
+                    <span className="material-symbols-outlined" aria-hidden="true">
+                      resume
+                    </span>
+                    Continue
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -292,6 +330,120 @@ function DocumentButton({ label, icon, iconColor, url, onOpen }: DocumentButtonP
           download
         </span>
       </a>
+    </div>
+  );
+}
+
+type MultiDiscPlayButtonProps = {
+  discs: DiscsResponse[];
+  selectedDisc: number;
+  onSelect: (discNumber: number) => void;
+  onPlay: () => void;
+};
+
+/**
+ * Split Play button for multi-disc games: a primary "Start Disc N" action +
+ * a caret that opens a dropdown to pick which disc to boot. Mirrors the
+ * in-console `DiscSelector` menu styling and "Disc N" labels (derived from the
+ * disc `index` field, 1-based). The selected disc is surfaced via the `?disc=`
+ * query param by the caller.
+ */
+function MultiDiscPlayButton({ discs, selectedDisc, onSelect, onPlay }: MultiDiscPlayButtonProps) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const activeDisc = discs[Math.min(Math.max(selectedDisc - 1, 0), discs.length - 1)];
+  const label = `Start Disc ${(activeDisc?.index ?? 0) + 1}`;
+
+  return (
+    <div className="relative flex items-stretch shadow-lg" ref={menuRef}>
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onPlay}
+        className={cn(
+          'bg-primary hover:bg-primary/90 text-on-primary font-body-md px-8 py-3',
+          'rounded-l flex items-center gap-2 font-semibold transition-all duration-300',
+          'hover:scale-[1.03] active:scale-100',
+        )}
+      >
+        <span className="material-symbols-outlined" aria-hidden="true">
+          play_arrow
+        </span>
+        {label}
+      </button>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Select disc"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          'bg-primary hover:bg-primary/90 text-on-primary px-2 rounded-r',
+          'border-l border-black/20 transition-colors flex items-center',
+        )}
+      >
+        <span className="material-symbols-outlined" aria-hidden="true">
+          expand_more
+        </span>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 top-full mt-2 z-50 glass-panel rounded-xl border border-white/10 py-1 min-w-[200px] shadow-2xl"
+        >
+          {discs.map((disc, i) => {
+            const n = i + 1;
+            const isActive = n === selectedDisc;
+            return (
+              <button
+                key={disc.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={isActive}
+                onClick={() => {
+                  onSelect(n);
+                  setOpen(false);
+                }}
+                className={cn(
+                  'w-full text-left px-4 py-2 flex items-center justify-between gap-3 text-xs',
+                  'hover:bg-white/10 transition-colors',
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <span
+                    className="material-symbols-outlined text-base"
+                    style={{ fontVariationSettings: "'FILL' 1", opacity: isActive ? 1 : 0 }}
+                    aria-hidden="true"
+                  >
+                    check_circle
+                  </span>
+                  <span
+                    className={cn(
+                      'font-semibold',
+                      isActive ? 'text-white' : 'text-on-surface-variant',
+                    )}
+                  >
+                    Disc {(disc.index ?? 0) + 1}
+                  </span>
+                </span>
+                <span className="text-[10px] text-white/30 font-mono">{disc.serial}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

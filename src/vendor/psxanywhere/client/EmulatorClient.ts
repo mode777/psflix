@@ -65,6 +65,7 @@ export interface DiscRequest {
 }
 
 export interface SwapDiscRequest {
+  serial?: string;
   pal?: boolean;
 }
 
@@ -420,6 +421,7 @@ export class EmulatorClient extends EventTarget {
   async swapDisc(url: string, opts?: SwapDiscRequest): Promise<void> {
     if (!this._emu) throw new Error('EmulatorClient: not booted');
     if (opts && typeof opts.pal === 'boolean') this._pal = opts.pal;
+    if (opts?.serial) this._currentDiscSerial = opts.serial;
     await this._emu.swapDisc(url, { pal: this._pal });
   }
 
@@ -608,7 +610,7 @@ export class EmulatorClient extends EventTarget {
   private _onDiscSwapped = (e: Event): void => {
     const gen = this._gen;
     const url = (e as CustomEvent).detail?.url;
-    this._currentDiscSerial = this._emu?.getCdromId() || null;
+    if (!this._currentDiscSerial) this._currentDiscSerial = this._emu?.getCdromId() || null;
     this._stateSync.setActiveDisc(this._currentDiscSerial);
     if (gen === this._gen) {
       this.dispatchEvent(new CustomEvent('disc-swapped', { detail: { url } }));

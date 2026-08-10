@@ -1,6 +1,6 @@
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuthStore } from '@/features/auth/store';
 import { fileUrl } from '@/lib/pb-files';
 import { showToast } from '@/lib/toast';
@@ -11,30 +11,94 @@ import { GameWindow } from '@/features/console/components/GameWindow';
 import { DiscSelector } from '@/features/console/components/DiscSelector';
 import { ControllerPortSelector } from '@/features/console/components/ControllerPortSelector';
 import { ConsoleMenu } from '@/features/console/components/ConsoleMenu';
+import { SlotPickerDialog } from '@/features/console/components/SlotPickerDialog';
 import { MemoryManagerDialog } from '@/features/console/components/memory/MemoryManagerDialog';
 import { ConsoleSkeleton } from '@/features/console/components/ConsoleSkeleton';
 import { FavoriteButton } from '@/features/favorites/FavoriteButton';
 import { useState } from 'react';
 import type { SaveSlot } from '@/features/console/types';
+import { SAVE_SLOTS } from '@/features/console/types';
 import { emulatorService } from '@/features/console/services';
+
+const VALID_SLOTS = new Set<string>(SAVE_SLOTS.map((s) => s.value));
+
+/** Parses the `?resume=<slot>` query param into a validated slot, or null. */
+function parseResumeSlot(raw: string | null): SaveSlot | null {
+  if (!raw) return null;
+  if (raw === '1') return 'auto';
+  return VALID_SLOTS.has(raw) ? (raw as SaveSlot) : null;
+}
+
+/**
+ * Parses the `?disc=<n>` query param (1-based disc position). Defaults to 1
+ * when absent/invalid; clamping to the actual disc count happens in
+ * `useEmulator`, where the discs array is available.
+ */
+function parseDiscNumber(raw: string | null): number {
+  if (!raw) return 1;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return n;
+}
 
 export default function ConsoleView() {
   const { firstDiscSerial } = useParams<{ firstDiscSerial: string }>();
   const [searchParams] = useSearchParams();
-  const resume = searchParams.get('resume') === '1';
+  const resumeSlot = parseResumeSlot(searchParams.get('resume'));
+  const discNumber = parseDiscNumber(searchParams.get('disc'));
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const emulator = useEmulator(firstDiscSerial, resume, canvasRef);
+  const emulator = useEmulator(firstDiscSerial, resumeSlot, discNumber, canvasRef);
   const settings = useConsoleSettings();
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const fatalMsg = emulatorService.getFatal();
 
   const savesQuery = useSaveStates(emulator.activeDisc?.id, emulator.user?.id);
   const { save, load, remove } = useSaveStateMutation(emulator.activeDisc?.id, emulator.user?.id);
   const saves = savesQuery.data ?? [];
   const isSaveBusy = save.isPending || load.isPending || remove.isPending;
+
+  // Save to the 'auto' slot when leaving the console via an in-app navigation
+  // (header links, browser back, the Back buttons below). `useBlocker` lets us
+  // await the async save *before* the unmount tears the emulator core down —
+  // an unmount cleanup can't reliably await, and destroy() kills the worker
+  // mid-save. Tab/window close (`pagehide`) is covered separately in
+  // useEmulator. Only block when a session is actually live (playing/paused)
+  // and the destination is a different route (query-param changes like disc
+  // swaps stay on the same pathname and must not be blocked).
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      currentLocation.pathname !== nextLocation.pathname &&
+      (emulator.runtime.status === 'playing' || emulator.runtime.status === 'paused'),
+  );
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    const disc = emulator.activeDisc;
+    if (!disc) {
+      blocker.proceed();
+      return;
+    }
+    let cancelled = false;
+    emulatorService
+      .saveState('auto', disc.id, emulator.user?.id ?? '')
+      .then(() => {
+        if (cancelled) return;
+        showToast('Progress saved.', { kind: 'info' });
+        blocker.proceed();
+      })
+      .catch(() => {
+        if (cancelled) return;
+        showToast('Could not save progress before leaving.');
+        blocker.proceed();
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [blocker, emulator.activeDisc, emulator.user]);
 
   const handleSave = (slot: SaveSlot) => {
     save.mutate(slot, {
@@ -111,7 +175,15 @@ export default function ConsoleView() {
             <ControllerPortSelector port={1} />
             <ControllerPortSelector port={2} />
             <DiscSelector discs={discs} activeDisc={activeDisc} onChange={emulator.switchDisc} />
-            <ConsoleMenu onMemory={() => setMemoryOpen(true)} />
+            <ConsoleMenu
+              onMemory={() => setMemoryOpen(true)}
+              onReset={emulator.reset}
+              onDeleteState={() => setDeleteOpen(true)}
+              isAuthenticated={isAuthenticated}
+              isSaveBusy={isSaveBusy}
+              hasSaves={saves.length > 0}
+              canReset={runtime.status !== 'idle' && runtime.status !== 'loading'}
+            />
           </div>
         </header>
 
@@ -124,13 +196,11 @@ export default function ConsoleView() {
             backdropUrl={backdropUrl}
             onPlay={emulator.play}
             onPause={emulator.pause}
-            onReset={emulator.reset}
             isAuthenticated={isAuthenticated}
             isSaveBusy={isSaveBusy}
             saves={saves}
             onSave={handleSave}
             onLoad={handleLoad}
-            onDelete={handleDelete}
             volume={settings.masterVolume}
             onVolumeChange={(v) => emulatorService.setSettings({ masterVolume: v })}
           />
@@ -161,6 +231,18 @@ export default function ConsoleView() {
       </main>
 
       <MemoryManagerDialog open={memoryOpen} onClose={() => setMemoryOpen(false)} />
+      {deleteOpen && (
+        <SlotPickerDialog
+          open
+          mode="delete"
+          saves={saves}
+          onSelect={(slot) => {
+            handleDelete(slot);
+            setDeleteOpen(false);
+          }}
+          onClose={() => setDeleteOpen(false)}
+        />
+      )}
     </>
   );
 }

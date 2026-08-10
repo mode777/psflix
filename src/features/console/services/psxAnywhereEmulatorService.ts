@@ -53,10 +53,19 @@ function seedMemoryCards(): MemoryCardInfo[] {
   return [];
 }
 
-/** Map a PSflix SaveSlot ('auto'|'slot1'|'slot2'|'slot3') onto the facade's Slot. */
+/**
+ * Map a PSflix SaveSlot ('auto'|'slot1'|'slot2'|'slot3') onto the facade's
+ * numeric Slot. The facade's slotToType maps numeric `n` to `slot${n}`, with a
+ * special case that `0` also maps to 'slot1' — so numeric slot 1 collides with
+ * 0 (both → 'slot1'). typeToSlot mirrors this ('slot1' → 0, 'slot2' → 2,
+ * 'slot3' → 3), so the canonical non-colliding numbers are 0, 2, 3. Slot 1 must
+ * be skipped, otherwise slot2 keys into slot1's storage and the load-state UI
+ * offers an empty slot2 that actually loads slot1's data.
+ */
 export function mapSlot(slot: SaveSlot): number | typeof EmulatorClient.SLOT_AUTO {
   if (slot === 'auto') return EmulatorClient.SLOT_AUTO;
-  return Number(slot.replace('slot', '')) - 1; // slot1→0, slot2→1, slot3→2
+  const n = Number(slot.replace('slot', '')); // slot1→1, slot2→2, slot3→3
+  return n === 1 ? 0 : n; // slot1→0 (matches typeToSlot('slot1')); 2,3 unchanged
 }
 
 function mapControllerType(type: ControllerType): number {
@@ -335,7 +344,7 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     if (!iso) throw new Error('This disc has no game image attached.');
     const chdUrl = fileUrl(disc, iso);
     store.getState().setRuntime({ status: 'loading', currentDiscId: disc.id });
-    await client.swapDisc(chdUrl, { pal: isPAL(region, disc.serial) });
+    await client.swapDisc(chdUrl, { serial: disc.serial, pal: isPAL(region, disc.serial) });
     store.getState().setRuntime({ status: 'paused' });
   }
 
@@ -389,11 +398,11 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
 
   async listSaveStates(discId: string, userId: string): Promise<SaveStateInfo[]> {
     const client = this._client;
-    if (!client) return [];
 
     // Cloud records are the source of truth when authenticated: they carry the
-    // real `updatedAt` and survive cross-device. Falls back to local IDB only
-    // when unauthed or if the fetch fails (offline / 401 mid-session).
+    // real `updatedAt` and survive cross-device. This path needs no emulator
+    // client, so it runs on the details view too (where the console isn't
+    // mounted yet) — otherwise Continue would never light up on first visit.
     const cloudBySlot = new Map<SaveSlot, SaveStateInfo>();
     if (psxAnywhereRepository.isAuthenticated()) {
       try {
@@ -424,6 +433,8 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
 
     // Local IDB probe catches saves the facade wrote but hasn't synced yet
     // (or all saves when unauthed). Slots deleted this session are hidden.
+    // It requires a live client; without one (details view) only cloud saves
+    // are reported.
     const meta = store.getState().saveMeta;
     const out: SaveStateInfo[] = [];
     for (const { value: slot } of SAVE_SLOTS) {
@@ -434,6 +445,7 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
         continue;
       }
       if (this._deletedSlots.has(`${discId}:${slot}`)) continue;
+      if (!client) continue;
       let exists = false;
       try {
         exists = await client.hasState(mapSlot(slot));

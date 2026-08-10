@@ -5,9 +5,23 @@ import { useConsoleSettings } from '../hooks/useConsoleSettings';
 
 type ConsoleMenuProps = {
   onMemory: () => void;
+  onReset: () => void;
+  onDeleteState: () => void;
+  isAuthenticated: boolean;
+  isSaveBusy: boolean;
+  hasSaves: boolean;
+  canReset: boolean;
 };
 
-export function ConsoleMenu({ onMemory }: ConsoleMenuProps) {
+export function ConsoleMenu({
+  onMemory,
+  onReset,
+  onDeleteState,
+  isAuthenticated,
+  isSaveBusy,
+  hasSaves,
+  canReset,
+}: ConsoleMenuProps) {
   const settings = useConsoleSettings();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -65,6 +79,44 @@ export function ConsoleMenu({ onMemory }: ConsoleMenuProps) {
             >
               check
             </span>
+          </button>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onReset();
+            }}
+            disabled={!canReset || isSaveBusy}
+            className={cn(
+              'w-full text-left px-4 py-2 flex items-center gap-3 text-xs',
+              'hover:bg-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent',
+            )}
+          >
+            <span className="material-symbols-outlined text-base text-white/60" aria-hidden="true">
+              restart_alt
+            </span>
+            <span className="flex-1 font-semibold text-on-surface-variant">Reset Game</span>
+          </button>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onDeleteState();
+            }}
+            disabled={!isAuthenticated || isSaveBusy || !hasSaves}
+            className={cn(
+              'w-full text-left px-4 py-2 flex items-center gap-3 text-xs',
+              'hover:bg-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent',
+            )}
+          >
+            <span className="material-symbols-outlined text-base text-white/60" aria-hidden="true">
+              {isAuthenticated ? 'delete' : 'lock'}
+            </span>
+            <span className="flex-1 font-semibold text-on-surface-variant">Delete Save State</span>
           </button>
 
           <button

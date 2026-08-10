@@ -1,12 +1,14 @@
-import { Routes, Route } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import Header from '@/components/layout/Header';
-import BrowseView from '@/routes/BrowseView';
-import DetailsView from '@/routes/DetailsView';
-import ConsoleView from '@/routes/ConsoleView';
-import NotFoundView from '@/routes/NotFoundView';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
+/**
+ * Always-mounted app chrome: the global `<title>` default, the persistent
+ * Header, and the render-level ErrorBoundary. Lives on a pathless layout route
+ * (see router.tsx) so it never unmounts on navigation between the child views —
+ * the Header is global, not per-route (see AGENTS.md).
+ */
 export default function App() {
   return (
     <>
@@ -20,12 +22,7 @@ export default function App() {
       </Helmet>
       <Header />
       <ErrorBoundary>
-        <Routes>
-          <Route path="/" element={<BrowseView />} />
-          <Route path="/game/:firstDiscSerial" element={<DetailsView />} />
-          <Route path="/play/:firstDiscSerial" element={<ConsoleView />} />
-          <Route path="*" element={<NotFoundView />} />
-        </Routes>
+        <Outlet />
       </ErrorBoundary>
     </>
   );

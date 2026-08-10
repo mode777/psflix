@@ -6,6 +6,7 @@ import { showToast } from '@/lib/toast';
 import { emulatorService } from '../services';
 import { useRuntime } from './useRuntime';
 import type { DiscsResponse, GamesRegionOptions } from '@/types/pocketbase';
+import type { SaveSlot } from '../types';
 
 function sortByIndex(discs: DiscsResponse[]): DiscsResponse[] {
   return [...discs].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
@@ -13,11 +14,12 @@ function sortByIndex(discs: DiscsResponse[]): DiscsResponse[] {
 
 /**
  * Orchestrates the console session for a game: attaches the canvas + boots the
- * emulator core, (when `resume` is set) restores the latest autosave, then
- * loads the first disc. Exposes runtime state + lifecycle callbacks.
+ * emulator core, loads the requested disc (1-based `discNumber`, default Disc
+ * 1), then (when `resumeSlot` is set) restores the requested save slot.
+ * Exposes runtime state + lifecycle callbacks.
  *
  * The canvas ref is owned by ConsoleView and shared with GameWindow so the
- * boot order (attach → resume → loadDisc) runs as one sequenced async chain,
+ * boot order (attach → loadDisc → resume) runs as one sequenced async chain,
  * avoiding races between sibling effects.
  *
  * The boot effect keys off a stable `hasData` boolean (not the raw query data
@@ -27,7 +29,8 @@ function sortByIndex(discs: DiscsResponse[]): DiscsResponse[] {
  */
 export function useEmulator(
   firstDiscSerial: string | undefined,
-  resume: boolean,
+  resumeSlot: SaveSlot | null,
+  discNumber: number,
   canvasRef: MutableRefObject<HTMLCanvasElement | null>,
 ) {
   const gameQuery = useGame(firstDiscSerial);
@@ -39,21 +42,29 @@ export function useEmulator(
     () => sortByIndex(gameQuery.data?.expand?.discs_via_game ?? []),
     [gameQuery.data],
   );
-  const activeDisc = discs.find((d) => d.id === runtime.currentDiscId) ?? discs[0] ?? null;
+  // Clamp the requested 1-based disc number to the available discs. Stable for
+  // the session (URL-derived); used both as the initial disc to boot and as the
+  // activeDisc fallback until the runtime reports the loaded disc id.
+  const targetIndex =
+    discs.length > 0 ? Math.min(Math.max(discNumber - 1, 0), discs.length - 1) : 0;
+  const activeDisc =
+    discs.find((d) => d.id === runtime.currentDiscId) ?? discs[targetIndex] ?? null;
 
   // The boot IIFE needs the values that are live *when data arrives*, but the
   // effect must run exactly once per mount. Capture them in refs so the effect
   // can key off a stable `hasData` boolean without re-triggering on every
   // parent re-render or react-query refetch (which would otherwise flip
   // `cancelled = true` and strand the session on `idle`).
-  const resumeRef = useRef(resume);
-  resumeRef.current = resume;
+  const resumeSlotRef = useRef(resumeSlot);
+  resumeSlotRef.current = resumeSlot;
   const userRef = useRef(user);
   userRef.current = user;
   const regionRef = useRef<GamesRegionOptions | undefined>(undefined);
   regionRef.current = (gameQuery.data?.region as GamesRegionOptions | undefined) ?? undefined;
   const initialDiscRef = useRef<DiscsResponse | null>(null);
-  if (!initialDiscRef.current && discs.length > 0) initialDiscRef.current = discs[0];
+  if (!initialDiscRef.current && discs.length > 0) {
+    initialDiscRef.current = discs[targetIndex] ?? discs[0];
+  }
 
   const hasData = !!gameQuery.data && discs.length > 0;
 
@@ -64,7 +75,7 @@ export function useEmulator(
     if (!canvas || !initial) return;
     bootedRef.current = true;
     emulatorService.destroy();
-    const resumeNow = resumeRef.current;
+    const resumeSlotNow = resumeSlotRef.current;
     const userNow = userRef.current;
     let cancelled = false;
 
@@ -77,15 +88,20 @@ export function useEmulator(
         return;
       }
       if (cancelled) return;
-      if (resumeNow && userNow) {
+      // The disc must be loaded before a save state can be applied:
+      // loadDisc sets the vendored client's `_currentDiscSerial` (which keys
+      // the IDB/cloud save lookup) and runs `retro_load_game` (which sets up
+      // the memory map `retro_unserialize` restores into). Calling loadState
+      // before this silently no-ops, so the resume would never take effect.
+      await emulatorService.loadDisc(initial, regionRef.current);
+      if (cancelled) return;
+      if (resumeSlotNow && userNow) {
         try {
-          await emulatorService.loadState('auto', initial.id, userNow.id);
+          await emulatorService.loadState(resumeSlotNow, initial.id, userNow.id);
         } catch {
           showToast('No saved progress found — starting a fresh session.', { kind: 'info' });
         }
       }
-      if (cancelled) return;
-      await emulatorService.loadDisc(initial, regionRef.current);
     })();
 
     return () => {
@@ -103,6 +119,25 @@ export function useEmulator(
       bootedRef.current = false;
       emulatorService.destroy();
     };
+  }, []);
+
+  // On tab/window close, write a final autosave to the 'auto' slot. The
+  // vendored EmulatorClient already saves on `pagehide` while *playing*, but
+  // its tick gates on `_isRunning` and skips paused sessions — this covers
+  // the paused gap. SPA route changes do NOT fire `pagehide`, so this never
+  // races the `useBlocker` save-on-navigate in ConsoleView.
+  useEffect(() => {
+    const onPageHide = () => {
+      const { status } = emulatorService.getRuntime();
+      if (status !== 'playing' && status !== 'paused') return;
+      const disc = initialDiscRef.current;
+      const user = userRef.current;
+      if (!disc) return;
+      // Fire-and-forget: the document is unloading, await is not reliable.
+      void emulatorService.saveState('auto', disc.id, user?.id ?? '');
+    };
+    window.addEventListener('pagehide', onPageHide);
+    return () => window.removeEventListener('pagehide', onPageHide);
   }, []);
 
   const switchDisc = useCallback((disc: DiscsResponse) => {

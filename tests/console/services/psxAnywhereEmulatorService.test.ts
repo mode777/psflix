@@ -97,10 +97,13 @@ describe('mapSlot', () => {
     expect(mapSlot('auto')).toBe(EmulatorClient.SLOT_AUTO);
   });
 
-  it('maps slotN → N-1 (zero-based port index)', () => {
+  it('maps slots onto the facade canonical numbers (skipping colliding 1)', () => {
+    // slotToType(0) === slotToType(1) === 'slot1', so numeric slot 1 collides
+    // with 0. The facade's typeToSlot normalizes slot1→0, slot2→2, slot3→3,
+    // and mapSlot must mirror that or slot2 keys into slot1's storage.
     expect(mapSlot('slot1')).toBe(0);
-    expect(mapSlot('slot2')).toBe(1);
-    expect(mapSlot('slot3')).toBe(2);
+    expect(mapSlot('slot2')).toBe(2);
+    expect(mapSlot('slot3')).toBe(3);
   });
 });
 
