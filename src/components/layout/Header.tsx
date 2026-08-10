@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/cn';
+import psLogo from '@/assets/playstation-logo.webp';
 import { useAuthStore } from '@/features/auth/store';
 import { SignInDialog } from '@/features/auth/SignInDialog';
 import { SignUpDialog } from '@/features/auth/SignUpDialog';
@@ -35,22 +36,25 @@ export default function Header() {
         <div className="max-w-container-max mx-auto flex justify-between items-center px-margin-mobile md:px-margin-desktop h-full">
           <div className="flex items-center">
             <Link to="/" aria-label="PSflix home" className="block">
-              <h1
-                className={cn(
-                  'font-bold text-2xl md:text-3xl tracking-tighter select-none',
-                  'hover:scale-105 transition-all duration-300',
-                )}
-                style={{
-                  fontFamily: 'Inter, sans-serif',
-                  fontStretch: 'condensed',
-                  textTransform: 'uppercase',
-                }}
-              >
-                <span style={{ color: '#ff0000' }}>PSF</span>
-                <span style={{ color: '#f5c800' }}>L</span>
-                <span style={{ color: '#00b1a5' }}>I</span>
-                <span style={{ color: '#005da5' }}>X</span>
-              </h1>
+              <span className="flex items-center gap-2.5 hover:scale-105 transition-all duration-300">
+                <img
+                  src={psLogo}
+                  alt=""
+                  aria-hidden="true"
+                  className="h-7 md:h-8 w-auto object-contain"
+                  draggable={false}
+                />
+                <h1
+                  className={cn(
+                    'font-bold text-2xl md:text-3xl tracking-[0.05em] select-none text-[#e2e2e2]',
+                  )}
+                  style={{
+                    fontFamily: "'Emotion Engine', Inter, sans-serif",
+                  }}
+                >
+                  PsFlix
+                </h1>
+              </span>
             </Link>
             <div className="flex items-center gap-4 ml-4">
               <button

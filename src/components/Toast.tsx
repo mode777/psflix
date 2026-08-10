@@ -17,7 +17,7 @@ export function Toast() {
           role="status"
           className={cn(
             'glass-panel rounded-xl ambient-shadow border border-white/10',
-            'p-3 flex items-start gap-3 text-body-md',
+            'px-3 pt-3 pb-1.5 flex items-start gap-3 text-body-md',
             t.kind === 'error' ? 'border-error/40' : 'border-primary/30',
           )}
         >

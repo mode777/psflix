@@ -90,6 +90,6 @@ export class SaveLoadController {
 
     const raw = parsed.kind === 'ok' ? stored.slice(parsed.coreOffset) : stored;
     await emu.loadState(slot, raw);
-    this._showToast(slot === Emulator.SLOT_AUTO ? 'Loaded auto-save' : 'State loaded');
+    //this._showToast(slot === Emulator.SLOT_AUTO ? 'Loaded auto-save' : 'State loaded');
   }
 }

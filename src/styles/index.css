@@ -4,6 +4,14 @@
 @import '@fontsource/inter/800.css';
 @import 'material-symbols';
 
+@font-face {
+  font-family: 'Emotion Engine';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('@/assets/EmotionEngineBold-YGnL.ttf') format('truetype');
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
