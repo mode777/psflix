@@ -13,4 +13,15 @@ import type { EmulatorService } from './emulator';
  */
 export const emulatorService: EmulatorService = new PsxAnywhereEmulatorService();
 
+/**
+ * Cloud-aware memory-card manager singleton. Constructed by the service so the
+ * binding callback can close over the live `EmulatorClient` (the service owns
+ * the client lifecycle) and the reconcile path can reach the manager. The
+ * service ↔ manager wiring lives in WS5 (`specs/memory-manager-cloud-sync/`).
+ */
+export const memoryCardManager = (
+  emulatorService as PsxAnywhereEmulatorService
+).buildMemoryCardManager();
+
 export { MockEmulatorService } from './emulator.mock';
+export { PsxAnywhereMemoryCardStore } from './psxAnywhereMemoryCardStore';

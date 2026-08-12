@@ -276,6 +276,20 @@ Fire-and-forget flush of dirty cards (posts `MEMCARD_FLUSH`). The Emulator
 also flushes on `visibilitychange` (hidden) and `run:stop`. The client does
 not need to call this for periodic flush — only for explicit user actions.
 
+> **Note:** the higher-level `EmulatorClient` adds two host-facing memcard
+> methods on top of the `Emulator` surface:
+>
+> - `setMemcardSlotBinding(slot: 1|2, binding: { id, label } | null)` — tell
+>   the facade which cloud card is mounted in a slot (or `null` to unbind). The
+>   vendored `MemcardSync` uses the binding to route dirty exports and
+>   downloads. Must be called before `boot()` for boot-restore to pull the right
+>   bytes; the host reads the cloud `mounted` field and the library.
+> - `syncMemcards()` — trigger a download pass for every bound slot (writes
+>   IDB; the worker picks it up on the next boot or `memcard-load-request`).
+>   Used by the host after reconciling bindings with the cloud on auth.
+>
+> Both delegate to `MemcardSync` (see [`memcard.md`](./memcard.md)).
+
 ## Save / load state
 
 Serializes and restores the running PS1's full machine state. The Worker is

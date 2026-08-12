@@ -112,11 +112,19 @@ export type GamesRecord<Tfeatures = unknown, Tlanguages = unknown> = {
   updated: IsoAutoDateString;
 };
 
+export const MemoryCardsMountedOptions = {
+  slot1: 'slot1',
+  slot2: 'slot2',
+} as const;
+export type MemoryCardsMountedOptions =
+  (typeof MemoryCardsMountedOptions)[keyof typeof MemoryCardsMountedOptions];
 export type MemoryCardsRecord = {
   created: IsoAutoDateString;
   data?: FileNameString;
   id: string;
   label?: string;
+  // Mirrors pb_schema.json `memory_cards.mounted` select (`:894-908`).
+  mounted?: MemoryCardsMountedOptions;
   updated: IsoAutoDateString;
   user?: RecordIdString;
 };
@@ -195,9 +203,8 @@ type ProcessCreateAndUpdateFields<T> = Omit<
   {
     // Omit AutoDate fields
     [
-      K in keyof T as Extract<T[K], IsoAutoDateString> extends never ? K : never
-    ]: // Convert FileNameString to File
-    T[K] extends infer U
+      K in keyof T as Extract<T[K], IsoAutoDateString> extends never ? K : never // Convert FileNameString to File
+    ]: T[K] extends infer U
       ? U extends FileNameString | FileNameString[]
         ? U extends any[]
           ? File[]

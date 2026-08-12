@@ -34,6 +34,9 @@ export type MemoryCardInfo = {
   label: string;
   usedBlocks: number;
   totalBlocks: number;
+  /** Which slot this card is mounted into (`slot1`/`slot2`), or null. Derived
+   *  from the cloud `memory_cards.mounted` field. */
+  mounted: 'slot1' | 'slot2' | null;
 };
 
 export type PlayerRuntimeState = {
@@ -45,11 +48,6 @@ export type PlayerRuntimeState = {
 export type ControllerPorts = {
   port1: ControllerType;
   port2: ControllerType;
-};
-
-export type MemorySlotAssignment = {
-  slot1: string | null;
-  slot2: string | null;
 };
 
 export const SAVE_SLOTS: { value: SaveSlot; label: string }[] = [

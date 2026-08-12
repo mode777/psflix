@@ -3,7 +3,6 @@ import type {
   ControllerPorts,
   ControllerType,
   MemoryCardInfo,
-  MemorySlotAssignment,
   PlayerRuntimeState,
   SaveSlot,
   SaveStateInfo,
@@ -68,9 +67,6 @@ export interface EmulatorService {
 
   // --- memory cards (maps onto pb.collection('memory_cards')) -----------
   listMemoryCards(userId: string): Promise<MemoryCardInfo[]>;
-  getMemorySlotAssignment(userId: string): MemorySlotAssignment;
-  setMemorySlot(port: 1 | 2, cardId: string | null, userId: string): void;
-  subscribeMemorySlots(listener: () => void): () => void;
 
   // --- live memory card bytes (session-scoped) ---------------------------
   /**

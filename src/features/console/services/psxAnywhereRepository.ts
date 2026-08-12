@@ -21,10 +21,14 @@ import { assertLabel, assertSerial, assertUserId, isNotFound } from './psxUtil';
  * The facade's sync engines already gate on `isAuthenticated()`, so calls only
  * fire when PSflix's auth store is valid.
  *
- * Two adapter-only helpers (`deleteSaveStateBySlot`, `fetchMemcardsForUser`)
- * are intentionally NOT on the upstream `Repository` interface — they exist so
- * PSflix's `EmulatorService` can drive cloud delete + memory-card listing
- * without widening the vendored contract.
+ * Adapter-only helpers (`deleteSaveStateBySlot`, `fetchMemcardsForUser`,
+ * `createMemcard`, `renameMemcard`, `deleteMemcard`, `setMemcardMounted`) are
+ * intentionally NOT on the upstream `Repository` interface — they exist so
+ * PSflix's `EmulatorService` / `MemoryCardCloudStore` can drive cloud delete,
+ * the memory-card library, and `mounted` slot markers without widening the
+ * vendored contract. The cloud card library is keyed by record `id` (stable
+ * across renames); the `memory_cards.mounted` select (`slot1`/`slot2`) marks
+ * which card is active in each slot.
  */
 class PsxAnywhereRepository implements Repository {
   private readonly _discIdCache = new Map<string, string>();
@@ -263,25 +267,46 @@ class PsxAnywhereRepository implements Repository {
   }
 
   // ── Memory-card cloud operations ─────────────────────────────────────
-  // `memory_cards` is keyed by (label, user); the facade's `MemcardSync` uses
-  // label `'default'` for slot 1.
+  // `memory_cards` is a per-user library; cloud identity is the record `id`
+  // (stable across renames) and the `mounted` select (`slot1`/`slot2`) marks
+  // which card is active in each slot. Upserts prefer `recordId` when provided
+  // (rename-safe); the legacy `(label, user)` lookup is the fallback.
 
-  async uploadMemcard(buf: ArrayBuffer, userId: string, label: string): Promise<unknown> {
+  async uploadMemcard(
+    buf: ArrayBuffer,
+    userId: string,
+    label: string,
+    recordId?: string,
+    mounted?: 'slot1' | 'slot2' | null,
+  ): Promise<unknown> {
     assertUserId(userId);
     assertLabel(label);
+
     let existing: { id: string } | null = null;
-    try {
-      existing = await pb
-        .collection('memory_cards')
-        .getFirstListItem(`label="${label}" && user="${userId}"`);
-    } catch (e) {
-      if (!isNotFound(e)) throw e;
+    if (recordId) {
+      // Rename-safe: trust the host-supplied id, skip the label lookup so
+      // renaming a mounted card updates in place (no duplicate).
+      existing = { id: recordId };
+    } else {
+      try {
+        existing = await pb
+          .collection('memory_cards')
+          .getFirstListItem(`label="${label}" && user="${userId}"`);
+      } catch (e) {
+        if (!isNotFound(e)) throw e;
+      }
     }
 
     const form = new FormData();
     form.append('user', userId);
     form.append('label', label);
     form.append('data', new Blob([buf as BlobPart]), 'memcard.mcd');
+    // Only append `mounted` when explicitly defined so the dirty-upload path
+    // (bytes only) does not clobber an existing slot marker. `''` clears the
+    // select (schema marks it `required: false`).
+    if (mounted !== undefined) {
+      form.append('mounted', mounted ?? '');
+    }
 
     if (existing) {
       return pb.collection('memory_cards').update(existing.id, form);
@@ -321,12 +346,20 @@ class PsxAnywhereRepository implements Repository {
 
   /**
    * Adapter-only (NOT on the upstream `Repository` interface): list a user's
-   * cloud memory cards so PSflix's `EmulatorService.listMemoryCards` can show
-   * real records alongside the seeded UX defaults.
+   * cloud memory cards so PSflix's `MemoryCardCloudStore` (WS4) /
+   * `EmulatorService.listMemoryCards` can show real records alongside the
+   * seeded UX defaults. Carries `mounted` so the caller can derive slot
+   * bindings from the source of truth.
    */
-  async fetchMemcardsForUser(
-    userId: string,
-  ): Promise<{ id: string; label: string; data: string; updated: string }[]> {
+  async fetchMemcardsForUser(userId: string): Promise<
+    {
+      id: string;
+      label: string;
+      data: string;
+      updated: string;
+      mounted: 'slot1' | 'slot2' | null;
+    }[]
+  > {
     assertUserId(userId);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const records: any[] = await pb
@@ -337,8 +370,88 @@ class PsxAnywhereRepository implements Repository {
       label: r.label ?? '',
       data: r.data,
       updated: r.updated,
+      mounted: normalizeMounted(r.mounted),
     }));
   }
+
+  // ── Adapter-only library CRUD (NOT on the vendored Repository interface) ─
+  // These exist so PSflix's MemoryCardCloudStore (WS4) can drive the cloud card
+  // library (create / rename / delete / mount) without widening the vendored
+  // contract. Mirror the existing deleteSaveStateBySlot / fetchMemcardsForUser
+  // pattern: all owner-scoped, require an authenticated `pb`.
+
+  /** Create a new card in the user's library. Bytes optional (spare card with
+   *  no image yet). `mounted` optional (create + mount in one step). */
+  async createMemcard(
+    userId: string,
+    label: string,
+    bytes?: ArrayBuffer | Uint8Array,
+    mounted?: 'slot1' | 'slot2' | null,
+  ): Promise<{ id: string; label: string; mounted: 'slot1' | 'slot2' | null }> {
+    assertUserId(userId);
+    assertLabel(label);
+    const form = new FormData();
+    form.append('user', userId);
+    form.append('label', label);
+    if (bytes) {
+      const ab = bytes instanceof Uint8Array ? bytes.buffer : bytes;
+      form.append('data', new Blob([ab as BlobPart]), 'memcard.mcd');
+    }
+    if (mounted) form.append('mounted', mounted);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r: any = await pb.collection('memory_cards').create(form);
+    return { id: r.id, label: r.label ?? label, mounted: normalizeMounted(r.mounted) };
+  }
+
+  /** Rename a library card. Safe on a mounted card: only `label` changes; the
+   *  record `id` and `mounted` are untouched. The host (WS4) re-binds the slot
+   *  with the new label so subsequent uploads key off the same id. */
+  async renameMemcard(recordId: string, label: string): Promise<void> {
+    assertLabel(label);
+    await pb.collection('memory_cards').update(recordId, { label });
+  }
+
+  /** Delete a card from the library. Callers should refuse on the client side
+   *  when the card is currently mounted (the host guards, but a defensive check
+   *  prevents orphaning a slot marker). */
+  async deleteMemcard(recordId: string): Promise<void> {
+    await pb.collection('memory_cards').delete(recordId);
+  }
+
+  /** Set or clear a card's `mounted` slot, ensuring slot exclusivity: when
+   *  mounting into slotN, first clear `mounted` on whichever card currently
+   *  holds slotN for this user (the previous occupant). Two calls; not atomic
+   *  but the single-session client makes the race negligible. */
+  async setMemcardMounted(
+    userId: string,
+    recordId: string,
+    slot: 'slot1' | 'slot2' | null,
+  ): Promise<void> {
+    assertUserId(userId);
+    if (slot) {
+      // Clear the previous occupant of this slot (if any, if different).
+      try {
+        const prev = await pb
+          .collection('memory_cards')
+          .getFirstListItem(`mounted="${slot}" && user="${userId}"`);
+        if (prev.id !== recordId) {
+          await pb.collection('memory_cards').update(prev.id, { mounted: '' });
+        }
+      } catch (e) {
+        if (!isNotFound(e)) throw e; // no previous occupant is fine
+      }
+      await pb.collection('memory_cards').update(recordId, { mounted: slot });
+    } else {
+      await pb.collection('memory_cards').update(recordId, { mounted: '' });
+    }
+  }
+}
+
+/** Coerce a raw `mounted` value into the strict union. Tolerant of legacy /
+ *  odd values (`undefined`, `''`, anything outside `{slot1, slot2}`) so a stray
+ *  value never crashes the library list. */
+function normalizeMounted(v: unknown): 'slot1' | 'slot2' | null {
+  return v === 'slot1' || v === 'slot2' ? v : null;
 }
 
 // Exported as the concrete class type so PSflix's adapter (EmulatorService) can

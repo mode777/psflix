@@ -5,7 +5,6 @@ import type {
   ControllerPorts,
   ControllerType,
   MemoryCardInfo,
-  MemorySlotAssignment,
   PlayerRuntimeState,
   SaveSlot,
   SaveStateInfo,
@@ -14,7 +13,6 @@ import type {
 import type { EmulatorService } from './emulator';
 import { loadSettings, saveSettings, loadControllers, saveControllers } from './persistedSlices';
 
-const DEFAULT_SLOT_ASSIGNMENT: MemorySlotAssignment = { slot1: null, slot2: null };
 const SIM_LATENCY_MS = 450;
 
 function delay(ms: number): Promise<void> {
@@ -26,13 +24,11 @@ type MockState = {
   saves: Record<string, SaveStateInfo[]>;
   memoryCards: MemoryCardInfo[];
   memcardBytes: Record<number, Uint8Array | null>;
-  slotAssignment: Record<string, MemorySlotAssignment>;
   controllers: ControllerPorts;
   settings: ConsoleSettings;
   setRuntime: (patch: Partial<PlayerRuntimeState>) => void;
   setSaves: (key: string, saves: SaveStateInfo[]) => void;
   setMemcardBytes: (slot: number, bytes: Uint8Array | null) => void;
-  setSlotAssignment: (userId: string, assignment: MemorySlotAssignment) => void;
   setControllers: (patch: Partial<ControllerPorts>) => void;
   setSettings: (patch: Partial<ConsoleSettings>) => void;
 };
@@ -51,15 +47,12 @@ const useMockStore = create<MockState>((set) => ({
   saves: {},
   memoryCards: seedMemoryCards(),
   memcardBytes: { 1: null, 2: null },
-  slotAssignment: {},
   controllers: loadControllers(),
   settings: loadSettings(),
   setRuntime: (patch) => set((s) => ({ runtime: { ...s.runtime, ...patch } })),
   setSaves: (key, saves) => set((s) => ({ saves: { ...s.saves, [key]: saves } })),
   setMemcardBytes: (slot, bytes) =>
     set((s) => ({ memcardBytes: { ...s.memcardBytes, [slot]: bytes } })),
-  setSlotAssignment: (userId, assignment) =>
-    set((s) => ({ slotAssignment: { ...s.slotAssignment, [userId]: assignment } })),
   setControllers: (patch) =>
     set((s) => {
       const next = { ...s.controllers, ...patch };
@@ -187,23 +180,6 @@ export class MockEmulatorService implements EmulatorService {
     return useMockStore.getState().memoryCards;
   }
 
-  getMemorySlotAssignment(userId: string): MemorySlotAssignment {
-    return useMockStore.getState().slotAssignment[userId] ?? DEFAULT_SLOT_ASSIGNMENT;
-  }
-
-  setMemorySlot(port: 1 | 2, cardId: string | null, userId: string): void {
-    const current = this.getMemorySlotAssignment(userId);
-    const next: MemorySlotAssignment = {
-      ...current,
-      [port === 1 ? 'slot1' : 'slot2']: cardId,
-    };
-    useMockStore.getState().setSlotAssignment(userId, next);
-  }
-
-  subscribeMemorySlots(listener: () => void): () => void {
-    return useMockStore.subscribe(listener);
-  }
-
   async exportMemcard(slot: 1 | 2): Promise<Uint8Array | null> {
     const bytes = useMockStore.getState().memcardBytes[slot];
     return bytes ? new Uint8Array(bytes) : null;
@@ -211,6 +187,14 @@ export class MockEmulatorService implements EmulatorService {
 
   async importMemcard(slot: 1 | 2, buf: ArrayBuffer | Uint8Array): Promise<void> {
     useMockStore.getState().setMemcardBytes(slot, new Uint8Array(buf));
+  }
+
+  /** Test-only: clear both memcard slots in the shared mock store so a test
+   *  can assert the "core has no card" path without leakage from earlier
+   *  tests in the same file (the store is module-scoped). */
+  __resetMemcards(): void {
+    useMockStore.getState().setMemcardBytes(1, null);
+    useMockStore.getState().setMemcardBytes(2, null);
   }
 
   getControllerPorts(): ControllerPorts {

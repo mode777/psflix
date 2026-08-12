@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { Save } from 'mcrreader';
 import { useFocusOnDialog } from '@/hooks/useFocusOnDialog';
 import { showToast } from '@/lib/toast';
-import { memoryCardManager, type MemorySlotNumber } from '../../memcards/memoryCardManager';
+import { memoryCardManager } from '../../services';
+import type { MemorySlotNumber } from '../../memcards/memoryCardManager';
 import { useMemoryManager } from '../../hooks/useMemoryManager';
 import { MemoryCardPane } from './MemoryCardPane';
 import { EmptyCardPane } from './EmptyCardPane';
@@ -25,8 +26,9 @@ export function MemoryManagerDialog({ open, onClose }: MemoryManagerDialogProps)
     if (!dlg) return;
     if (open) {
       if (!dlg.open) dlg.showModal();
-      // Refresh any slots the core couldn't report before it finished booting;
-      // hydrate only fills slots that are still null, so in-memory edits survive.
+      // Re-export both slots from the live core so game-written saves appear
+      // on dialog reopen. hydrate also refreshes the cloud library + mount
+      // markers when authed; in-memory edits survive via the busy guard.
       void memoryCardManager.hydrate();
     } else {
       dlg.close();

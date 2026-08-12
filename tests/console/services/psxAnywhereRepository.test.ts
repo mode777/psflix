@@ -144,11 +144,18 @@ function memoryCardsCollection() {
   const records = new Map<string, Record<string, unknown>>();
   let next = 1;
   return {
+    // Matches any combination of `label`, `user`, `mounted` keys present in
+    // the filter. Absent keys are ignored (so the label-based upload lookup
+    // and the mounted-based previous-occupant lookup both route here).
     getFirstListItem: vi.fn(async (filter: string) => {
       const label = match(filter, 'label');
       const user = match(filter, 'user');
+      const mounted = match(filter, 'mounted');
       for (const r of records.values()) {
-        if (r.label === label && r.user === user) return r;
+        if (label !== undefined && r.label !== label) continue;
+        if (user !== undefined && r.user !== user) continue;
+        if (mounted !== undefined && r.mounted !== mounted) continue;
+        return r;
       }
       notFound();
     }),
@@ -158,30 +165,49 @@ function memoryCardsCollection() {
     }),
     create: vi.fn(async (form: FormData) => {
       const id = `mc-${next++}`;
-      const r = {
+      const mountedRaw = form.get('mounted');
+      const r: Record<string, unknown> = {
         id,
         label: String(form.get('label')),
         user: String(form.get('user')),
-        data: 'memcard.mcd',
         updated: '2024-02-01T00:00:00.000Z',
         collectionId: 'pbc_mc',
       };
+      if (form.has('data')) r.data = 'memcard.mcd';
+      // `null` ⇒ not appended (leave absent); `''` ⇒ cleared; else the slot.
+      if (mountedRaw !== null) r.mounted = String(mountedRaw);
       records.set(id, r);
       return r;
     }),
-    update: vi.fn(async (id: string, form: FormData) => {
-      const r = records.get(id);
-      if (!r) notFound();
-      const updated = {
+    update: vi.fn(async (id: string, payload: FormData | Record<string, unknown>) => {
+      const existing = records.get(id);
+      if (!existing) notFound();
+      const r = existing!;
+      const isForm = payload instanceof FormData;
+      const labelRaw = isForm
+        ? (payload as FormData).get('label')
+        : (payload as Record<string, unknown>).label;
+      const mountedRaw = isForm
+        ? (payload as FormData).get('mounted')
+        : (payload as Record<string, unknown>).mounted;
+      const updated: Record<string, unknown> = {
         ...r,
-        label: String(form.get('label') ?? r!.label),
-        data: 'memcard.mcd',
         updated: '2024-02-02T00:00:00.000Z',
         collectionId: 'pbc_mc',
       };
+      if (labelRaw !== null && labelRaw !== undefined) updated.label = String(labelRaw);
+      // For FormData: `null` ⇒ not appended ⇒ preserve existing (dirty-upload
+      // path must not clobber the slot marker). `''` ⇒ cleared. For plain
+      // objects: `undefined` ⇒ preserve; `''` ⇒ cleared.
+      if (mountedRaw !== null && mountedRaw !== undefined) updated.mounted = String(mountedRaw);
+      if (isForm && (payload as FormData).has('data')) updated.data = 'memcard.mcd';
       records.set(id, updated);
       return updated;
     }),
+    delete: vi.fn(async (id: string) => {
+      records.delete(id);
+    }),
+    __records: records,
   };
 }
 
@@ -458,6 +484,177 @@ describe('PsxAnywhereRepository — Phase 2 (cloud sync)', () => {
       await psxAnywhereRepository.uploadMemcard(new ArrayBuffer(2), 'u-1', 'default');
       const cards = await psxAnywhereRepository.fetchMemcardsForUser('u-1');
       expect(cards.map((c) => c.label)).toEqual(['default']);
+      // WS3: each row now carries a `mounted` field (null when unset).
+      expect(cards[0].mounted).toBeNull();
+    });
+  });
+
+  describe('WS3 — mounted + library CRUD', () => {
+    function seed(id: string, over: Partial<Record<string, unknown>> = {}): void {
+      memcards.__records.set(id, {
+        id,
+        label: 'Card',
+        user: 'u-1',
+        data: 'memcard.mcd',
+        updated: '2024-02-01T00:00:00.000Z',
+        collectionId: 'pbc_mc',
+        ...over,
+      });
+    }
+
+    // ── fetchMemcardsForUser returns mounted ────────────────────────────
+
+    it('fetchMemcardsForUser returns mounted and coerces odd values to null', async () => {
+      seed('mc-mounted', { label: 'Slot1', mounted: 'slot1' });
+      seed('mc-clean', { label: 'Spare', mounted: undefined });
+      seed('mc-empty', { label: 'Empty', mounted: '' });
+      seed('mc-junk', { label: 'Junk', mounted: 'foo' });
+
+      const cards = await psxAnywhereRepository.fetchMemcardsForUser('u-1');
+      const byLabel = Object.fromEntries(cards.map((c) => [c.label, c.mounted]));
+      expect(byLabel['Slot1']).toBe('slot1');
+      expect(byLabel['Spare']).toBeNull();
+      expect(byLabel['Empty']).toBeNull();
+      expect(byLabel['Junk']).toBeNull();
+    });
+
+    // ── uploadMemcard: recordId + mounted ───────────────────────────────
+
+    it('uploadMemcard with recordId updates by id and skips the label lookup', async () => {
+      seed('mc-123', { label: 'old-name' });
+      await psxAnywhereRepository.uploadMemcard(new ArrayBuffer(2), 'u-1', 'renamed', 'mc-123');
+      expect(memcards.update).toHaveBeenCalledWith('mc-123', expect.any(FormData));
+      expect(memcards.getFirstListItem).not.toHaveBeenCalled();
+      // The record keeps its id; label is carried by the form.
+      const form = (memcards.update as ReturnType<typeof vi.fn>).mock.calls[0][1] as FormData;
+      expect(form.get('label')).toBe('renamed');
+    });
+
+    it('uploadMemcard appends mounted when provided', async () => {
+      await psxAnywhereRepository.uploadMemcard(
+        new ArrayBuffer(2),
+        'u-1',
+        'mount-card',
+        undefined,
+        'slot1',
+      );
+      const form = (memcards.create as ReturnType<typeof vi.fn>).mock.calls[0][0] as FormData;
+      expect(form.get('mounted')).toBe('slot1');
+    });
+
+    it('uploadMemcard with mounted:null clears via empty string', async () => {
+      seed('mc-clear', { label: 'clear-card', mounted: 'slot1' });
+      await psxAnywhereRepository.uploadMemcard(
+        new ArrayBuffer(2),
+        'u-1',
+        'clear-card',
+        'mc-clear',
+        null,
+      );
+      const form = (memcards.update as ReturnType<typeof vi.fn>).mock.calls[0][1] as FormData;
+      expect(form.get('mounted')).toBe('');
+    });
+
+    it('uploadMemcard without mounted does NOT append it (dirty-upload path)', async () => {
+      await psxAnywhereRepository.uploadMemcard(new ArrayBuffer(2), 'u-1', 'plain');
+      const form = (memcards.create as ReturnType<typeof vi.fn>).mock.calls[0][0] as FormData;
+      expect(form.has('mounted')).toBe(false);
+      // Seeded mounted value must survive a subsequent dirty (bytes-only) upload.
+      seed('mc-keep', { label: 'keep-mount', mounted: 'slot2' });
+      await psxAnywhereRepository.uploadMemcard(new ArrayBuffer(2), 'u-1', 'keep-mount', 'mc-keep');
+      expect(memcards.__records.get('mc-keep')!.mounted).toBe('slot2');
+    });
+
+    // ── createMemcard ───────────────────────────────────────────────────
+
+    it('createMemcard without bytes omits data and returns mounted:null', async () => {
+      const out = await psxAnywhereRepository.createMemcard('u-1', 'Spare');
+      expect(memcards.create).toHaveBeenCalledTimes(1);
+      const form = (memcards.create as ReturnType<typeof vi.fn>).mock.calls[0][0] as FormData;
+      expect(form.has('data')).toBe(false);
+      expect(out.label).toBe('Spare');
+      expect(out.mounted).toBeNull();
+      expect(out.id).toBeTypeOf('string');
+    });
+
+    it('createMemcard with bytes appends data', async () => {
+      await psxAnywhereRepository.createMemcard('u-1', 'WithBytes', new ArrayBuffer(4));
+      const form = (memcards.create as ReturnType<typeof vi.fn>).mock.calls[0][0] as FormData;
+      expect(form.has('data')).toBe(true);
+    });
+
+    it('createMemcard with mounted returns the slot', async () => {
+      const out = await psxAnywhereRepository.createMemcard('u-1', 'Mounted', undefined, 'slot1');
+      const form = (memcards.create as ReturnType<typeof vi.fn>).mock.calls[0][0] as FormData;
+      expect(form.get('mounted')).toBe('slot1');
+      expect(out.mounted).toBe('slot1');
+    });
+
+    // ── renameMemcard ───────────────────────────────────────────────────
+
+    it('renameMemcard updates only label and leaves mounted untouched', async () => {
+      seed('mc-rn', { label: 'Old', mounted: 'slot1' });
+      await psxAnywhereRepository.renameMemcard('mc-rn', 'New');
+      expect(memcards.update).toHaveBeenCalledWith('mc-rn', { label: 'New' });
+      expect(memcards.__records.get('mc-rn')!.label).toBe('New');
+      expect(memcards.__records.get('mc-rn')!.mounted).toBe('slot1');
+    });
+
+    // ── deleteMemcard ───────────────────────────────────────────────────
+
+    it('deleteMemcard removes the record', async () => {
+      seed('mc-del');
+      await psxAnywhereRepository.deleteMemcard('mc-del');
+      expect(memcards.delete).toHaveBeenCalledWith('mc-del');
+      expect(memcards.__records.has('mc-del')).toBe(false);
+    });
+
+    // ── setMemcardMounted ───────────────────────────────────────────────
+
+    it('setMemcardMounted mounts with no previous occupant → single update', async () => {
+      seed('mc-solo', { mounted: undefined });
+      await psxAnywhereRepository.setMemcardMounted('u-1', 'mc-solo', 'slot1');
+      expect(memcards.update).toHaveBeenCalledTimes(1);
+      expect(memcards.update).toHaveBeenCalledWith('mc-solo', { mounted: 'slot1' });
+    });
+
+    it('setMemcardMounted clears the previous occupant then sets the new card', async () => {
+      seed('mc-a', { label: 'A', mounted: 'slot1' });
+      seed('mc-b', { label: 'B', mounted: undefined });
+      await psxAnywhereRepository.setMemcardMounted('u-1', 'mc-b', 'slot1');
+      expect(memcards.update).toHaveBeenCalledTimes(2);
+      expect(memcards.update).toHaveBeenNthCalledWith(1, 'mc-a', { mounted: '' });
+      expect(memcards.update).toHaveBeenNthCalledWith(2, 'mc-b', { mounted: 'slot1' });
+      expect(memcards.__records.get('mc-a')!.mounted).toBe('');
+      expect(memcards.__records.get('mc-b')!.mounted).toBe('slot1');
+    });
+
+    it('setMemcardMounted unmount (slot:null) → single update clearing mounted', async () => {
+      seed('mc-eject', { mounted: 'slot2' });
+      await psxAnywhereRepository.setMemcardMounted('u-1', 'mc-eject', null);
+      expect(memcards.update).toHaveBeenCalledTimes(1);
+      expect(memcards.update).toHaveBeenCalledWith('mc-eject', { mounted: '' });
+      expect(memcards.__records.get('mc-eject')!.mounted).toBe('');
+    });
+
+    it('setMemcardMounted re-mounting the same card is one idempotent update', async () => {
+      seed('mc-same', { mounted: 'slot1' });
+      await psxAnywhereRepository.setMemcardMounted('u-1', 'mc-same', 'slot1');
+      // Previous occupant === target ⇒ skip the clear; still re-set the slot.
+      expect(memcards.update).toHaveBeenCalledTimes(1);
+      expect(memcards.update).toHaveBeenCalledWith('mc-same', { mounted: 'slot1' });
+    });
+
+    // ── Auth gating (existing pattern: validators reject bad userId) ────
+
+    it('createMemcard rejects bad userId', async () => {
+      await expect(psxAnywhereRepository.createMemcard('', 'Spare')).rejects.toThrow(/userId/i);
+    });
+
+    it('setMemcardMounted rejects bad userId', async () => {
+      await expect(psxAnywhereRepository.setMemcardMounted('', 'mc-x', 'slot1')).rejects.toThrow(
+        /userId/i,
+      );
     });
   });
 

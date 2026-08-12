@@ -13,7 +13,7 @@ import type { Repository, SaveStateRecordDto } from '@/vendor/psxanywhere/reposi
 export interface MockRepoCalls {
   download: string[];
   upload: { discSerial: string; type: string; userId: string }[];
-  uploadMemcard: { buf: ArrayBuffer; userId: string; label: string }[];
+  uploadMemcard: { buf: ArrayBuffer; userId: string; label: string; recordId?: string }[];
   downloadMemcard: string[];
   fetchGames: number;
   fetchBiosUrl: number;
@@ -36,9 +36,17 @@ export interface MockRepoOpts {
   uploadSaveStateThrow?: Error;
   downloadSaveStateImpl?: () => { buf: ArrayBuffer; recordId: string; updated: string };
   downloadSaveStateThrow?: Error;
-  uploadMemcardImpl?: (buf: ArrayBuffer, userId: string, label: string) => Promise<void>;
+  uploadMemcardImpl?: (
+    buf: ArrayBuffer,
+    userId: string,
+    label: string,
+    recordId?: string,
+  ) => Promise<void>;
   uploadMemcardThrow?: Error;
-  downloadMemcardImpl?: () =>
+  downloadMemcardImpl?: (
+    userId: string,
+    label: string,
+  ) =>
     | { buf: ArrayBuffer; recordId: string; updated: string }
     | Promise<{ buf: ArrayBuffer; recordId: string; updated: string }>;
   downloadMemcardThrow?: Error;
@@ -153,16 +161,16 @@ export function createMockRepository(opts: MockRepoOpts = {}): MockRepository {
       return opts.fetchSaveStatesForImpl ? opts.fetchSaveStatesForImpl() : [];
     },
     // Memory card cloud operations
-    uploadMemcard: async (buf, userId, label) => {
-      calls.uploadMemcard.push({ buf, userId, label });
-      if (opts.uploadMemcardImpl) return opts.uploadMemcardImpl(buf, userId, label);
+    uploadMemcard: async (buf, userId, label, recordId) => {
+      calls.uploadMemcard.push({ buf, userId, label, recordId });
+      if (opts.uploadMemcardImpl) return opts.uploadMemcardImpl(buf, userId, label, recordId);
       if (opts.uploadMemcardThrow) throw opts.uploadMemcardThrow;
     },
     downloadMemcard: async (userId, label) => {
       calls.downloadMemcard.push(`${userId}:${label}`);
       if (opts.downloadMemcardThrow) throw opts.downloadMemcardThrow;
       return opts.downloadMemcardImpl
-        ? opts.downloadMemcardImpl()
+        ? opts.downloadMemcardImpl(userId, label)
         : { buf: new Uint8Array([42]).buffer, recordId: 'r1', updated: '2024-01-01T00:00:00.000Z' };
     },
     hasRemoteMemcard: async () => false,

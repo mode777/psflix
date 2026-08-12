@@ -118,6 +118,13 @@ upstream interface — keep `Repository` shape intact). Wire `useSaveStateMutati
 
 ## M. Memory-card cloud ops
 
+> **Superseded** by [`specs/memory-manager-cloud-sync/`](../memory-manager-cloud-sync/spec.md).
+> The model moved from "one memcard per user, label `default`" to a
+> `mounted`-backed card **library** with both slots syncing. `uploadMemcard`
+> now upserts by record `id` (optional `recordId`); the manager reads/writes
+> the `mounted` select on mount/eject. The table below describes the Phase 2
+> baseline that the library model extends.
+
 The `memory_cards` collection (`pb_schema.json:682-773`): `user` (relation), `label`
 (text), `data` (file). Owner-only access.
 
@@ -169,6 +176,13 @@ empty and let the user create via the (future) memcard management UI. Decision:
 keep the seeded defaults for UX continuity; mark them as local-only.
 
 ### N.4 `setMemorySlot` — persist assignment
+
+> **Superseded** by [`specs/memory-manager-cloud-sync/`](../memory-manager-cloud-sync/spec.md)
+> (WS5). Slot assignment is now the cloud `memory_cards.mounted` select field
+> (source of truth) + a `{slot1:{id,label}|null, slot2:...}` binding cache in
+> `localStorage` (`psflix:memcard-slots:<userId>`) read synchronously at boot
+> and reconciled with the cloud `mounted` field on auth. The text below
+> describes the original Phase 2 approach.
 
 The mock kept slot assignment in memory. Phase 2 should persist the user's
 slot↔card choice. Cheapest: store in `localStorage` keyed by `userId` (no schema
@@ -272,7 +286,7 @@ Runtime:
 - [ ] Sync-status indicator in the UI.
 - [ ] `deleteState` wired (optional UI exposure).
 - [ ] Repository + adapter + (optional) E2E tests green.
-- [ ] Cross-device save + memcard sync verified manually.
+- [ ] Cross-device save + memcard sync verified manually (both slots — satisfied by `specs/memory-manager-cloud-sync/`).
 - [ ] `AGENTS.md` updated to note cloud sync is live.
 
 ---
@@ -284,4 +298,4 @@ Runtime:
 - **CRT shader controls** — expose `setCrtParam` in `OptionsDialog` with `EmulatorClient.CRT_SHADER_DEFAULT_PARAMS` for "reset".
 - **`OptionsDialog` beyond stub** — video filters, BIOS/region selection (multi-`consoles` records), performance HUD.
 - **Realtime** — PocketBase SSE/WS to push saves from other devices instantly (currently poll-on-sync-pass).
-- **Cloud memcard slot assignment** — new collection if localStorage proves insufficient.
+- **~~Cloud memcard slot assignment~~** — **done** in [`specs/memory-manager-cloud-sync/`](../memory-manager-cloud-sync/spec.md): the `mounted` select on `memory_cards` is the cloud source of truth, backed by a `localStorage` binding cache for boot-time restore; both slots round-trip.

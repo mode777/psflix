@@ -1,7 +1,9 @@
 'use strict';
 
 // Memory card cloud sync. Downloads from PocketBase on auth, uploads on dirty export.
-// See specs/archive/memcard-sync/spec.md.
+// Per-slot model: each of slots 1 and 2 is bound to a cloud card via
+// setSlotBinding({ id, label }) and syncs independently. See
+// specs/memory-manager-cloud-sync/ws-1-vendored-memcard-sync.md.
 
 import type { Repository } from 'repository';
 import type { MemcardStorage } from './memcardStorage';
@@ -9,8 +11,21 @@ import { formatErr } from './saveStateStorage';
 
 // ── Constants ───────────────────────────────────────────────────────
 
-const MEMCARD_SLOT = 1;
-const MEMCARD_LABEL = 'default';
+const SLOTS = [1, 2] as const;
+type Slot = (typeof SLOTS)[number];
+
+interface SlotBinding {
+  id: string; // PocketBase record id — stable across renames; used for upsert
+  label: string; // display name / cloud lookup key (legacy path)
+}
+
+interface SlotState {
+  binding: SlotBinding | null;
+  lastUploadedHash: string | null;
+  pendingBytes: ArrayBuffer | null;
+  dirtyTimer: ReturnType<typeof setTimeout> | null;
+}
+
 // Debounce window for cloud uploads. A single PS1 save touches the card
 // several times in quick succession (directory block + save block), and the
 // worker's 5s poll can sample intermediate states. Collapsing touches into one
@@ -20,6 +35,8 @@ const UPLOAD_DEBOUNCE_MS = 5000;
 // Re-arm delay when an upload is mid-flight and a new dirty touch arrives.
 // Short enough to retry promptly once the in-flight upload finishes.
 const RETRY_WHILE_UPLOADING_MS = 1000;
+
+export type { SlotBinding };
 
 // ── MemcardSync ─────────────────────────────────────────────────────
 
@@ -32,10 +49,8 @@ export class MemcardSync {
   private readonly _onSyncStart: (() => void) | null;
   private readonly _onSyncComplete: (() => void) | null;
 
+  private readonly _slots: Map<Slot, SlotState>;
   private _pendingDownload: Promise<void> | null = null;
-  private _lastUploadedHash: string | null = null;
-  private _pendingBytes: ArrayBuffer | null = null;
-  private _dirtyTimer: ReturnType<typeof setTimeout> | null = null;
   private _uploading = false;
   private _disposed = false;
 
@@ -57,11 +72,38 @@ export class MemcardSync {
     this._hash = opts?.hashFn ?? sha256Hex;
     this._onSyncStart = opts?.onSyncStart ?? null;
     this._onSyncComplete = opts?.onSyncComplete ?? null;
+    this._slots = new Map<Slot, SlotState>([
+      [1, this._newSlotState()],
+      [2, this._newSlotState()],
+    ]);
+  }
+
+  private _newSlotState(): SlotState {
+    return { binding: null, lastUploadedHash: null, pendingBytes: null, dirtyTimer: null };
   }
 
   // ── Public API ──────────────────────────────────────────────────
 
-  /** Download cloud memcard → storage. Deterministic entry point (also used by tests). */
+  /** Host declares which cloud card (id+label) is mounted in a slot.
+   *  Pass null to unbind (eject). Resets that slot's lastUploadedHash so the
+   *  next dirty export under the new identity uploads (not dedup-skipped).
+   *  Cancels any pending debounce timer + clears stale pending bytes. Does not
+   *  itself upload — the next dirty export (worker 5s poll) drives that. */
+  setSlotBinding(slot: number, binding: SlotBinding | null): void {
+    if (slot !== 1 && slot !== 2) return;
+    const st = this._slots.get(slot as Slot);
+    if (!st) return;
+    st.binding = binding;
+    st.lastUploadedHash = null;
+    if (st.dirtyTimer) {
+      clearTimeout(st.dirtyTimer);
+      st.dirtyTimer = null;
+    }
+    st.pendingBytes = null;
+  }
+
+  /** Download cloud memcards → storage for every *bound* slot. Deterministic
+   *  entry point (also used by tests + onAuthChange). */
   async syncNow(): Promise<void> {
     if (!this._repo.isAuthenticated()) return;
     this._pendingDownload = this._doDownload();
@@ -78,21 +120,26 @@ export class MemcardSync {
   }
 
   /** Stash a dirty export and (re)arm the debounce timer. Fire-and-forget.
-   *  `bytes` is an ArrayBuffer from the worker (transferred), but accepting
-   *  Uint8Array too keeps the contract tolerant — the previous direct-upload
-   *  path happened to work because `new Uint8Array(bytes).buffer` accepts both. */
+   *  Per-slot: no-op if the slot has no binding or the repo is unauthed. Both
+   *  slots 1 and 2 are handled. `bytes` is an ArrayBuffer from the worker
+   *  (transferred), but accepting Uint8Array too keeps the contract tolerant —
+   *  the previous direct-upload path happened to work because
+   *  `new Uint8Array(bytes).buffer` accepts both. */
   onMemcardDirty(slot: number, bytes: ArrayBuffer | Uint8Array): void {
-    if (slot !== MEMCARD_SLOT) return;
+    if (slot !== 1 && slot !== 2) return; // ignore unknown slots
     if (!this._repo.isAuthenticated()) return;
+    const st = this._slots.get(slot as Slot);
+    if (!st || !st.binding) return; // unbound slot: no-op
     // Each touch replaces the pending bytes and resets the debounce window so
     // a burst of writes (the core's SaveMcd touches the dir block + save block
     // in sequence) collapses into one upload using the final state.
     const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-    this._pendingBytes = u8.slice().buffer as ArrayBuffer;
-    this._armTimer(UPLOAD_DEBOUNCE_MS);
+    st.pendingBytes = u8.slice().buffer as ArrayBuffer;
+    this._armTimer(st, UPLOAD_DEBOUNCE_MS);
   }
 
-  /** Handle auth state change. */
+  /** Handle auth state change. On auth, download both bound slots; on de-auth,
+   *  clear per-slot transient state. */
   onAuthChange(authed: boolean): void {
     if (authed) {
       void this.syncNow();
@@ -104,11 +151,13 @@ export class MemcardSync {
   /** Stop timers and clear transient state. Safe to call repeatedly. */
   dispose(): void {
     this._disposed = true;
-    if (this._dirtyTimer) {
-      clearTimeout(this._dirtyTimer);
-      this._dirtyTimer = null;
+    for (const st of this._slots.values()) {
+      if (st.dirtyTimer) {
+        clearTimeout(st.dirtyTimer);
+        st.dirtyTimer = null;
+      }
+      st.pendingBytes = null;
     }
-    this._pendingBytes = null;
     this._uploading = false;
   }
 
@@ -118,89 +167,118 @@ export class MemcardSync {
     const userId = this._repo.getCurrentUserId();
     if (!userId) return;
 
-    try {
-      this._log('info', 'memcard-sync: downloading cloud memcard…');
-      this._onSyncStart?.();
-      const { buf } = await this._repo.downloadMemcard(userId, MEMCARD_LABEL);
-      await this._storage.save(MEMCARD_SLOT, buf);
-      this._log('info', `memcard-sync: cloud memcard loaded (${buf.byteLength} bytes)`);
-      this._showToast('Memcard synced');
-      this._onSyncComplete?.();
-    } catch (e: unknown) {
-      this._log('warn', `memcard-sync: download failed: ${formatErr(e)}`);
-      this._onSyncComplete?.();
+    this._log('info', 'memcard-sync: downloading cloud memcards…');
+    this._onSyncStart?.();
+    for (const slot of SLOTS) {
+      const st = this._slots.get(slot)!;
+      if (!st.binding) continue; // unbound slot: skip
+      try {
+        const { buf } = await this._repo.downloadMemcard(userId, st.binding.label);
+        await this._storage.save(slot, buf);
+        this._log('info', `memcard-sync: slot ${slot} downloaded (${buf.byteLength} bytes)`);
+      } catch (e: unknown) {
+        // 404 (no cloud card yet for this label) is benign — leave IDB as-is.
+        // One slot's failure must not abort the other slot's download.
+        this._log('warn', `memcard-sync: slot ${slot} download failed: ${formatErr(e)}`);
+      }
     }
+    this._showToast('Memcard synced');
+    this._onSyncComplete?.();
   }
 
-  /** Fired by the debounce timer. Drains the latest pending bytes. */
+  /** Fired by a debounce timer. Drains pending bytes across both slots. */
   private _flushUpload(): void {
-    // An upload is mid-flight: re-arm so we re-check once it lands. The
-    // _doUpload finally block also re-arms if bytes arrived meanwhile, so the
-    // newest touch is never lost.
+    // An upload pass is mid-flight: re-arm so we re-check once it lands. The
+    // _drainUpload finally block also re-arms if bytes arrived meanwhile, so
+    // the newest touch is never lost.
     if (this._uploading) {
-      this._armTimer(RETRY_WHILE_UPLOADING_MS);
+      for (const st of this._slots.values()) {
+        if (st.pendingBytes && !st.dirtyTimer) {
+          this._armTimer(st, RETRY_WHILE_UPLOADING_MS);
+        }
+      }
       return;
     }
-    const buf = this._pendingBytes;
-    if (!buf) return;
-    this._pendingBytes = null;
-    void this._doUpload(buf);
+    // Collect every slot with pending bytes and drain them sequentially within
+    // one pass (slot 1 then slot 2). Order is irrelevant: the two records are
+    // independent.
+    const pending = SLOTS.map((s) => ({ slot: s, st: this._slots.get(s)! })).filter(
+      (x) => x.st.pendingBytes,
+    );
+    if (pending.length === 0) return;
+    void this._drainUpload(pending);
   }
 
-  private async _doUpload(buf: ArrayBuffer): Promise<void> {
+  private async _drainUpload(pending: { slot: Slot; st: SlotState }[]): Promise<void> {
     this._uploading = true;
     try {
-      const hash = await this._hash(buf);
-      if (hash === this._lastUploadedHash) {
-        this._log(
-          'info',
-          'memcard-sync: dirty export detected but hash unchanged — skipping upload',
-        );
-        return;
+      for (const { slot, st } of pending) {
+        if (!st.pendingBytes) continue;
+        const buf = st.pendingBytes;
+        st.pendingBytes = null;
+        await this._doUpload(buf, slot, st);
       }
-
-      this._log('info', 'memcard-sync: dirty export detected, uploading…');
-      this._onSyncStart?.();
-      const userId = this._repo.getCurrentUserId();
-      if (!userId) return;
-
-      await this._repo.uploadMemcard(buf, userId, MEMCARD_LABEL);
-      this._lastUploadedHash = hash;
-      this._log('info', 'memcard-sync: memcard uploaded');
-      this._onSyncComplete?.();
-    } catch (e: unknown) {
-      this._log('warn', `memcard-sync: upload failed: ${formatErr(e)}`);
-      this._onSyncComplete?.();
-      // Leave _lastUploadedHash unchanged — will retry on next dirty export.
     } finally {
       this._uploading = false;
-      // If a touch arrived while uploading, re-arm the debounce to flush it.
+      // If a touch arrived during the pass, re-arm the debounce to flush it.
       // Guard against dispose() having been called mid-flight.
-      if (!this._disposed && this._pendingBytes && !this._dirtyTimer) {
-        this._dirtyTimer = setTimeout(() => {
-          this._dirtyTimer = null;
-          this._flushUpload();
-        }, UPLOAD_DEBOUNCE_MS);
+      if (!this._disposed) {
+        for (const s of this._slots.values()) {
+          if (s.pendingBytes && !s.dirtyTimer) {
+            this._armTimer(s, UPLOAD_DEBOUNCE_MS);
+          }
+        }
       }
     }
   }
 
-  /** Clear transient state on logout/de-auth. Does NOT cancel an in-flight upload. */
-  private _clearTransientState(): void {
-    this._lastUploadedHash = null;
-    this._pendingDownload = null;
-    if (this._dirtyTimer) {
-      clearTimeout(this._dirtyTimer);
-      this._dirtyTimer = null;
+  private async _doUpload(buf: ArrayBuffer, slot: Slot, st: SlotState): Promise<void> {
+    const hash = await this._hash(buf);
+    if (hash === st.lastUploadedHash) {
+      this._log(
+        'info',
+        `memcard-sync: slot ${slot} dirty export detected but hash unchanged — skipping upload`,
+      );
+      return;
     }
-    this._pendingBytes = null;
+
+    if (!st.binding) return;
+    this._log('info', `memcard-sync: slot ${slot} dirty export detected, uploading…`);
+    this._onSyncStart?.();
+    const userId = this._repo.getCurrentUserId();
+    if (!userId) return;
+
+    try {
+      await this._repo.uploadMemcard(buf, userId, st.binding.label, st.binding.id);
+      st.lastUploadedHash = hash;
+      this._log('info', `memcard-sync: slot ${slot} memcard uploaded`);
+      this._onSyncComplete?.();
+    } catch (e: unknown) {
+      this._log('warn', `memcard-sync: slot ${slot} upload failed: ${formatErr(e)}`);
+      this._onSyncComplete?.();
+      // Leave lastUploadedHash unchanged — will retry on next dirty export.
+    }
   }
 
-  /** Arm (or re-arm) the debounce timer, replacing any previous timer. */
-  private _armTimer(ms: number): void {
-    if (this._dirtyTimer) clearTimeout(this._dirtyTimer);
-    this._dirtyTimer = setTimeout(() => {
-      this._dirtyTimer = null;
+  /** Clear transient state on logout/de-auth across both slots. Does NOT cancel
+   *  an in-flight upload. */
+  private _clearTransientState(): void {
+    for (const st of this._slots.values()) {
+      st.lastUploadedHash = null;
+      if (st.dirtyTimer) {
+        clearTimeout(st.dirtyTimer);
+        st.dirtyTimer = null;
+      }
+      st.pendingBytes = null;
+    }
+    this._pendingDownload = null;
+  }
+
+  /** Arm (or re-arm) a slot's debounce timer, replacing any previous timer. */
+  private _armTimer(st: SlotState, ms: number): void {
+    if (st.dirtyTimer) clearTimeout(st.dirtyTimer);
+    st.dirtyTimer = setTimeout(() => {
+      st.dirtyTimer = null;
       this._flushUpload();
     }, ms);
   }

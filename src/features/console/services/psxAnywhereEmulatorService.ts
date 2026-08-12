@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { EmulatorClient } from 'emulator-client';
+import { parseMemoryCard } from 'mcrreader';
 import { fileUrl } from '@/lib/pb-files';
 import { queryClient } from '@/lib/queryClient';
 import { showToast } from '@/lib/toast';
@@ -9,48 +10,67 @@ import type {
   ControllerPorts,
   ControllerType,
   MemoryCardInfo,
-  MemorySlotAssignment,
   PlayerRuntimeState,
   SaveSlot,
   SaveStateInfo,
   SyncStatus,
 } from '../types';
 import { SAVE_SLOTS } from '../types';
+import type {
+  MemoryCardManager,
+  MemorySlotNumber,
+  SlotBinding,
+} from '../memcards/memoryCardManager';
+import { createMemoryCardManager } from '../memcards/memoryCardManager';
 import type { EmulatorService } from './emulator';
 import { isPAL } from './psxRegion';
 import { psxAnywhereRepository } from './psxAnywhereRepository';
+import { PsxAnywhereMemoryCardStore } from './psxAnywhereMemoryCardStore';
 import { loadSettings, saveSettings, loadControllers, saveControllers } from './persistedSlices';
 
-const SLOT_ASSIGNMENT_KEY = (userId: string) => `psflix:memcard-slots:${userId}`;
-const DEFAULT_SLOT_ASSIGNMENT: MemorySlotAssignment = { slot1: null, slot2: null };
+const SLOT_BINDING_KEY = (userId: string) => `psflix:memcard-slots:${userId}`;
 const AUTO_SAVE_INTERVAL_MS = 5 * 60_000;
 
-function loadSlotAssignment(userId: string): MemorySlotAssignment {
-  try {
-    const raw = localStorage.getItem(SLOT_ASSIGNMENT_KEY(userId));
-    if (!raw) return { ...DEFAULT_SLOT_ASSIGNMENT };
-    const parsed = JSON.parse(raw) as Partial<MemorySlotAssignment>;
-    return {
-      slot1: parsed.slot1 === null || typeof parsed.slot1 === 'string' ? parsed.slot1 : null,
-      slot2: parsed.slot2 === null || typeof parsed.slot2 === 'string' ? parsed.slot2 : null,
-    };
-  } catch {
-    return { ...DEFAULT_SLOT_ASSIGNMENT };
-  }
+// ── Binding cache (localStorage) ──────────────────────────────────────
+// Repurposed from the orphaned `{slot1, slot2}` assignment map to hold the
+// latest `{id, label}` binding per slot per user. Read synchronously at
+// `attachCanvas` (before `boot()`) so the worker's memcard-load-request
+// downloads the right cards. Tolerant of the legacy shape / malformed data.
+
+type CachedBinding = SlotBinding | null;
+type SlotBindingCache = { slot1: CachedBinding; slot2: CachedBinding };
+
+function isBinding(v: unknown): v is SlotBinding {
+  return (
+    v != null &&
+    typeof v === 'object' &&
+    typeof (v as { id?: unknown }).id === 'string' &&
+    typeof (v as { label?: unknown }).label === 'string'
+  );
 }
 
-function persistSlotAssignment(userId: string, assignment: MemorySlotAssignment): void {
+function loadBindingCache(userId: string): SlotBindingCache {
   try {
-    localStorage.setItem(SLOT_ASSIGNMENT_KEY(userId), JSON.stringify(assignment));
+    const raw = localStorage.getItem(SLOT_BINDING_KEY(userId));
+    if (raw) {
+      const parsed = JSON.parse(raw) as { slot1?: unknown; slot2?: unknown };
+      return {
+        slot1: isBinding(parsed.slot1) ? parsed.slot1 : null,
+        slot2: isBinding(parsed.slot2) ? parsed.slot2 : null,
+      };
+    }
+  } catch {
+    /* ignore malformed */
+  }
+  return { slot1: null, slot2: null };
+}
+
+function saveBindingCache(userId: string, cache: SlotBindingCache): void {
+  try {
+    localStorage.setItem(SLOT_BINDING_KEY(userId), JSON.stringify(cache));
   } catch {
     // ignore (private mode / quota)
   }
-}
-
-function seedMemoryCards(): MemoryCardInfo[] {
-  // No seeded UX-default cards: the memory-card manager owns the session's
-  // cards in-memory, and cloud records are the only persistence here.
-  return [];
 }
 
 /**
@@ -85,7 +105,6 @@ type ServiceState = {
   runtime: PlayerRuntimeState;
   controllers: ControllerPorts;
   settings: ConsoleSettings;
-  slotAssignment: Record<string, MemorySlotAssignment>;
   /** `${discId}:${slot}` → ISO timestamp of the last local save (session-only). */
   saveMeta: Record<string, string>;
   /** Bumped whenever the facade replaces the canvas, so listeners re-render. */
@@ -94,7 +113,6 @@ type ServiceState = {
   setRuntime: (patch: Partial<PlayerRuntimeState>) => void;
   setControllers: (patch: Partial<ControllerPorts>) => void;
   setSettings: (patch: Partial<ConsoleSettings>) => void;
-  setSlotAssignment: (userId: string, assignment: MemorySlotAssignment) => void;
   setSaveMeta: (key: string, iso: string) => void;
   bumpCanvas: () => void;
   setSyncStatus: (status: SyncStatus) => void;
@@ -104,7 +122,6 @@ const store = create<ServiceState>((set) => ({
   runtime: { status: 'idle', currentDiscId: null, elapsedMs: 0 },
   controllers: loadControllers(),
   settings: loadSettings(),
-  slotAssignment: {},
   saveMeta: {},
   canvasGen: 0,
   syncStatus: 'idle',
@@ -121,8 +138,6 @@ const store = create<ServiceState>((set) => ({
       saveSettings(next);
       return { settings: next };
     }),
-  setSlotAssignment: (userId, assignment) =>
-    set((s) => ({ slotAssignment: { ...s.slotAssignment, [userId]: assignment } })),
   setSaveMeta: (key, iso) => set((s) => ({ saveMeta: { ...s.saveMeta, [key]: iso } })),
   bumpCanvas: () => set((s) => ({ canvasGen: s.canvasGen + 1 })),
   setSyncStatus: (status) => set({ syncStatus: status }),
@@ -143,14 +158,34 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
   private _lastDisc: DiscsResponse | null = null;
   private _fatalMsg: string | null = null;
   private _statusBeforeBuffer: PlayerRuntimeState['status'] | null = null;
-  /** Stable per-user slot-assignment refs (memoized across renders). */
-  private readonly _slotCache = new Map<string, MemorySlotAssignment>();
+  /** Cloud-aware memory-card manager owned by this service (built on demand). */
+  private _memoryCardManager: MemoryCardManager | null = null;
+  /** Cloud card library store backing the manager. */
+  private readonly _cloudStore = new PsxAnywhereMemoryCardStore();
+  /** Serializes reconcile passes so a rapid auth-toggle does not stack them. */
+  private _reconcileSeq: Promise<void> = Promise.resolve();
   /** `${discId}:${slot}` slots deleted this session — hidden from the local
    *  IDB probe in `listSaveStates` until a new save overwrites them. */
   private readonly _deletedSlots = new Set<string>();
   /** Canvas click → pointer-lock binding (installed while a mouse port is live). */
   private _pointerLockCanvas: HTMLCanvasElement | null = null;
   private _pointerLockClickHandler: ((e: MouseEvent) => void) | null = null;
+
+  /**
+   * Construct (once) the cloud-aware memory-card manager wired to this service:
+   * the cloud store backs the library, and the binding callback pushes mount/
+   * eject/rename changes into the vendored sync engine + the localStorage
+   * binding cache. WS5 exports the resulting singleton from `services/index.ts`.
+   */
+  buildMemoryCardManager(): MemoryCardManager {
+    if (this._memoryCardManager) return this._memoryCardManager;
+    const onBindingChange = (slot: MemorySlotNumber, binding: SlotBinding | null): void => {
+      this._client?.setMemcardSlotBinding(slot, binding);
+      this._persistBindingCache(slot, binding);
+    };
+    this._memoryCardManager = createMemoryCardManager(this, this._cloudStore, onBindingChange);
+    return this._memoryCardManager;
+  }
 
   // --- lifecycle -------------------------------------------------------
 
@@ -169,11 +204,33 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     });
     this._client = client;
     this._wireEvents(client);
+    // Set initial slot bindings from the per-user cache BEFORE boot so the
+    // worker's memcard-load-request downloads the right cards. Without this,
+    // the worker boots with no bindings and downloads nothing (fresh-device
+    // gap until the auth reconcile lands).
+    const userId = psxAnywhereRepository.getCurrentUserId();
+    if (userId) {
+      const cache = loadBindingCache(userId);
+      client.setMemcardSlotBinding(1, cache.slot1);
+      client.setMemcardSlotBinding(2, cache.slot2);
+    }
     await client.boot();
     // The facade boots with a default standard pad + CRT on, ignoring our
     // persisted config — push the stored settings + controller ports in.
     this._applyConfig(client);
     this._attachPointerLock(canvas);
+    // The vendored client only dispatches `auth-change` on explicit sign-in/out
+    // (pb.authStore.onChange), NOT for the already-authed-at-attach case (a
+    // persisted token restored at load never fires onChange, and the client's
+    // construction-time auth probe at EmulatorClient.ts:172 doesn't dispatch the
+    // event). Without this, setUserId never runs and every cloud-gated manager
+    // op silently falls back to session-only — cards never reach the cloud and
+    // bindings point at non-existent UUID records. Reconcile sets the userId,
+    // hydrates the cloud library, derives bindings from cloud `mounted`, seeds a
+    // default card if needed, and triggers a download pass. The existing
+    // `auth-change` listener still handles sign-in-while-console-open; both are
+    // serialized through `_reconcileSeq` so concurrent passes queue safely.
+    if (userId) void this._reconcileMemoryCards(userId);
   }
 
   destroy(): void {
@@ -233,25 +290,41 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
       store.getState().setSyncStatus('syncing');
       this._invalidateSaveStateQueries();
     });
-    // A sync pass finished (download + upload reconciled). Mark synced and
-    // invalidate both caches so records from another device appear.
+    // A sync pass finished *and reconciled something* (the facade only fires
+    // this event when an upload or download actually happened, not every idle
+    // tick). Save-states are queried once on console load and cached; we do NOT
+    // invalidate here — the per-save `state-saved` handler already refreshes
+    // the UI immediately after a local save, and uploads are drained by the
+    // facade's own timer. Re-querying on every pass would re-hit PocketBase
+    // roughly every second; cross-device updates appear on next load/auth.
     client.addEventListener('state-sync-complete', () => {
       store.getState().setSyncStatus('synced');
-      this._invalidateSaveStateQueries();
-      queryClient.invalidateQueries({ queryKey: ['memory-cards'] });
     });
     // Memory card sync started (upload or download).
     client.addEventListener('memcard-sync-start', () => {
       store.getState().setSyncStatus('syncing');
     });
-    // Memory card sync finished.
+    // Memory card sync finished. Cloud state may have changed (another device
+    // or the just-completed download pass): refresh the manager's library so
+    // the editor shows fresh bytes + invalidate the react-query list. This is
+    // a LIGHT refresh — it must NOT call syncMemcards() again or the two would
+    // loop (sync-complete → reconcile → syncMemcards → sync-complete → …).
     client.addEventListener('memcard-sync-complete', () => {
       store.getState().setSyncStatus('synced');
-      queryClient.invalidateQueries({ queryKey: ['memory-cards'] });
+      const userId = psxAnywhereRepository.getCurrentUserId();
+      if (userId) void this._refreshMemoryCards(userId);
+      else queryClient.invalidateQueries({ queryKey: ['memory-cards'] });
     });
     client.addEventListener('auth-change', (e) => {
       const detail = (e as CustomEvent).detail as { authed?: boolean } | undefined;
-      store.getState().setSyncStatus(detail?.authed ? 'syncing' : 'idle');
+      const authed = !!detail?.authed;
+      store.getState().setSyncStatus(authed ? 'syncing' : 'idle');
+      if (authed) {
+        const userId = psxAnywhereRepository.getCurrentUserId();
+        if (userId) void this._reconcileMemoryCards(userId);
+      } else {
+        this._onSignOut();
+      }
     });
   }
 
@@ -503,50 +576,133 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     }
   }
 
-  // --- memory cards (cloud + seeded UX defaults) -----------------------
+  // --- memory cards (cloud library + live bytes) ------------------------
 
   async listMemoryCards(userId: string): Promise<MemoryCardInfo[]> {
-    const seeded = seedMemoryCards();
-    if (!psxAnywhereRepository.isAuthenticated()) return seeded;
+    if (!psxAnywhereRepository.isAuthenticated()) return [];
     try {
       const records = await psxAnywhereRepository.fetchMemcardsForUser(userId);
-      const cloud = records.map<MemoryCardInfo>((r) => ({
-        id: r.id,
-        label: r.label || 'Memory Card',
-        // Block counts require parsing the .mcd header; not cheap to fetch per
-        // card, so return the PS1 card frame (15 blocks) and compute lazily.
-        usedBlocks: 0,
-        totalBlocks: 15,
-      }));
-      return [...cloud, ...seeded];
+      const out: MemoryCardInfo[] = [];
+      for (const r of records) {
+        let usedBlocks = 0;
+        let totalBlocks = 15;
+        // Eagerly fetch + parse the .mcd header for real block counts. v1
+        // acceptable per the spec's perf trade-off; revisit with lazy fetch if
+        // libraries grow. A spare card with no file throws → defaults remain.
+        try {
+          const { buf } = await psxAnywhereRepository.downloadMemcard(userId, r.label);
+          const parsed = parseMemoryCard(new Uint8Array(buf));
+          usedBlocks = parsed.totalBlocks - parsed.freeBlocks;
+          totalBlocks = parsed.totalBlocks;
+        } catch {
+          /* leave defaults (0 / 15) */
+        }
+        out.push({
+          id: r.id,
+          label: r.label || 'Memory Card',
+          usedBlocks,
+          totalBlocks,
+          mounted: r.mounted,
+        });
+      }
+      return out;
     } catch {
-      return seeded;
+      return [];
     }
   }
 
-  getMemorySlotAssignment(userId: string): MemorySlotAssignment {
-    const stored = store.getState().slotAssignment[userId];
-    if (stored) return stored;
-    const cached = this._slotCache.get(userId);
-    if (cached) return cached;
-    const loaded = loadSlotAssignment(userId);
-    this._slotCache.set(userId, loaded);
-    return loaded;
+  // --- memory-card orchestration (cloud ↔ vendored facade) -------------
+
+  /** Update the per-user binding cache entry for one slot (called from the
+   *  manager's `onBindingChange` callback). No-op when signed out. */
+  private _persistBindingCache(slot: MemorySlotNumber, binding: CachedBinding): void {
+    const userId = psxAnywhereRepository.getCurrentUserId();
+    if (!userId) return;
+    const cache = loadBindingCache(userId);
+    if (slot === 1) cache.slot1 = binding;
+    else cache.slot2 = binding;
+    saveBindingCache(userId, cache);
   }
 
-  setMemorySlot(port: 1 | 2, cardId: string | null, userId: string): void {
-    const current = this.getMemorySlotAssignment(userId);
-    const next: MemorySlotAssignment = {
-      ...current,
-      [port === 1 ? 'slot1' : 'slot2']: cardId,
+  /** Light refresh after a memcard sync pass: re-pull the manager's cloud
+   *  library + mount markers (so the editor reflects fresh library state) +
+   *  invalidate the react-query list. Deliberately calls `refreshLibrary`
+   *  (NOT `hydrate`) so the running emulator's slot bytes are NOT re-exported
+   *  or clobbered — cross-device downloads apply on the next boot via IDB
+   *  (apply-on-next-boot). Also does NOT call syncMemcards (would loop). */
+  private async _refreshMemoryCards(userId: string): Promise<void> {
+    if (this._memoryCardManager) {
+      try {
+        await this._memoryCardManager.refreshLibrary(userId);
+      } catch {
+        /* ignore — refresh is best-effort */
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ['memory-cards'] });
+  }
+
+  /** Full reconcile on auth: cloud is authoritative for `mounted`. Hydrate the
+   *  manager, re-derive slot bindings from the refreshed library, push them to
+   *  the sync engine + cache, then trigger a download pass so both mounted
+   *  cards' bytes land in IDB for the next boot. Serialized so a rapid
+   *  auth-toggle runs passes sequentially (no throw, last state wins). */
+  private _reconcileMemoryCards(userId: string): Promise<void> {
+    this._reconcileSeq = this._reconcileSeq
+      .then(() => this._doReconcile(userId))
+      .catch(() => {
+        /* a failed reconcile must not break the chain */
+      });
+    return this._reconcileSeq;
+  }
+
+  private async _doReconcile(userId: string): Promise<void> {
+    const manager = this._memoryCardManager;
+    if (!manager) return;
+    // 1. Refresh the manager's library + slot bytes from cloud + live export.
+    manager.setUserId(userId);
+    await manager.hydrate(userId);
+
+    // 2. First-time user (no cloud cards yet): seed a 'default' card in slot 1
+    //    so the emulator has a mounted card (preserves the legacy phase-2
+    //    default). Cloud-only — if the create fails (network / cloud down) it
+    //    is skipped and retried on the next reconcile, rather than falling back
+    //    to a session-only card that could never sync. The blank image is
+    //    byte-identical to the fresh MEMFS card the worker already created, so
+    //    there is no observable difference on the first session — subsequent
+    //    boots restore it from IDB (apply-on-next-boot).
+    try {
+      await manager.ensureDefaultCard(1);
+    } catch {
+      // Cloud create/mount failed — retry on the next reconcile.
+    }
+
+    // 3. Re-derive bindings from the refreshed `mounted` fields and push to
+    //    the sync engine (cloud authoritative; the cache follows).
+    const lib = manager.getState().library;
+    const bind = (slot: MemorySlotNumber): void => {
+      const card = lib.find((c) => c.mounted === slot);
+      const binding: SlotBinding | null = card ? { id: card.id, label: card.label } : null;
+      this._client?.setMemcardSlotBinding(slot, binding);
+      this._persistBindingCache(slot, binding);
     };
-    this._slotCache.set(userId, next);
-    store.getState().setSlotAssignment(userId, next);
-    persistSlotAssignment(userId, next);
+    bind(1);
+    bind(2);
+
+    // 4. Trigger a download pass so both mounted cards' bytes land in IDB for
+    //    the next boot (apply-on-next-boot). This fires memcard-sync-complete
+    //    when done → the light refresh above (no loop).
+    await this._client?.syncMemcards();
+
+    // 5. Invalidate the react-query list so any subscriber re-fetches.
+    queryClient.invalidateQueries({ queryKey: ['memory-cards'] });
   }
 
-  subscribeMemorySlots(listener: () => void): () => void {
-    return store.subscribe(listener);
+  /** Sign-out: clear vendored bindings + the manager's user so it falls back
+   *  to session-only. The library is wiped on the next sign-in's hydrate. */
+  private _onSignOut(): void {
+    this._client?.setMemcardSlotBinding(1, null);
+    this._client?.setMemcardSlotBinding(2, null);
+    this._memoryCardManager?.setUserId(null);
   }
 
   // --- live memory card bytes (session-scoped) ---------------------------

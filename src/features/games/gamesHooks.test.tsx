@@ -64,7 +64,7 @@ beforeEach(() => {
 });
 
 describe('useGames', () => {
-  it('fetches a page of games with sort=-created and expand=discs', async () => {
+  it('fetches a page of games with sort=title and expand=discs', async () => {
     const getList = vi.fn().mockResolvedValue({
       items: [{ id: 'g1' }, { id: 'g2' }],
       page: 1,
@@ -80,7 +80,7 @@ describe('useGames', () => {
     expect(getList).toHaveBeenCalledWith(
       1,
       24,
-      expect.objectContaining({ sort: '-created', expand: 'discs' }),
+      expect.objectContaining({ sort: 'title', expand: 'discs' }),
     );
     expect(result.current.data?.pages[0]?.items).toHaveLength(2);
   });

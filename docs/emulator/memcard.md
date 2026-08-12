@@ -20,7 +20,7 @@ variables the core already queries.
 | ------------ | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Storage port | `client/memcardStorage.ts`                                                                                                  | `MemcardStorage` interface + `IdbMemcardStorage` (DB `psx-memcards` v1, store `memcards`, keys `"1"`/`"2"`) + `InMemoryMemcardStorage` test double              |
 | Facade       | `client/EmulatorClient.ts`                                                                                                  | owns the persistence round-trip: `_onMemcardLoadRequest` (restore at boot) + `_onMemcardExported` (dirty persist) — internal, NOT re-emitted                    |
-| Cloud sync   | `client/MemcardSync.ts`                                                                                                     | downloads cloud memcard on auth / boot, uploads on dirty export (SHA-256 dedup, 5 s debounce)                                                                   |
+| Cloud sync   | `client/MemcardSync.ts`                                                                                                     | per-slot cloud sync: `setSlotBinding` + download on auth/boot + upload on dirty export (SHA-256 dedup, 5 s debounce); both slots round-trip                     |
 | Repository   | `src/vendor/psxanywhere/repository/repository.ts` + PSflix adapter `src/features/console/services/psxAnywhereRepository.ts` | PocketBase gateway: `uploadMemcard`, `downloadMemcard`, `hasRemoteMemcard`                                                                                      |
 | Core vars    | `emulator/worker/host.c` `host_env_cb`                                                                                      | `GET_SAVE_DIRECTORY` → `"/saves"`; `pcsx_rearmed_memcard{1,2}` → `"shared"`                                                                                     |
 | Worker       | `emulator/worker/memcard.ts`                                                                                                | manages MEMFS files only: restores imported cards, content-hashes each file (53-bit FNV-1a) to detect dirty writes, posts `MEMCARD_EXPORT_RESULT` for each diff |
@@ -140,40 +140,68 @@ The worker only manages MEMFS files — it never reads or writes IndexedDB.
 ## Cloud sync (`MemcardSync`)
 
 `MemcardSync` (`client/MemcardSync.ts`) handles PocketBase sync for memory
-cards: **one memcard per user** (slot 1, label `"default"`).
+cards using a **per-slot, library-backed model**: each of the two PS1 slots is
+bound to a cloud card via a `{ id, label }` binding, and both slots round-trip
+through the cloud independently. (Previously only slot 1, label `'default'`
+synced; slot 2 dirty writes were dropped. See
+[`specs/memory-manager-cloud-sync/`](../../specs/memory-manager-cloud-sync/spec.md)
+for the full cloud-library / `mounted` model.)
 
-### Download (on auth / boot)
+### Bindings — `setSlotBinding(slot, binding | null)`
 
-`onAuthChange(authed)` → if authed, `syncNow()` — a download pass. Also called
-once at construction if already authenticated. `ensureDownloaded()` (used by
-`_onMemcardLoadRequest` before handing cards to the worker) downloads the
-cloud memcard and writes it to IDB via `memcardStorage.save(1, buf)`. The
-worker picks it up on the next `MEMCARD_LOAD_REQUEST`. If no cloud memcard
-exists (first-time user or offline), the download silently no-ops.
+The host declares which cloud card is mounted in a slot. Passing `null`
+unbinds (ejects). A bind clears that slot's `lastUploadedHash`, cancels any
+pending debounce timer, and clears stale pending bytes — so the next dirty
+export under the new identity uploads unconditionally and stale bytes from a
+previous card never upload under the new identity.
 
-### Upload (on dirty export)
+`EmulatorClient.setMemcardSlotBinding(slot: 1|2, binding | null)` is the
+host-facing pass-through; the host (PSflix) derives the binding from the cloud
+`mounted` field and the library card list and **must** call it before `boot()`
+for boot-restore to pull the right bytes.
 
-`onMemcardDirty(slot, bytes)` — slot 1 only — stashes the bytes and arms a
-**5 s debounce timer** (`UPLOAD_DEBOUNCE_MS = 5000`). When it fires, it
-computes a SHA-256 hash of the bytes; if the hash matches `_lastUploadedHash`,
-skip (no change); otherwise uploads to PocketBase via
-`repo.uploadMemcard(buf, userId, 'default')`. On success stores the hash.
-Fire-and-forget — errors are logged but don't block the UI (and `_lastUploadedHash`
-is left unchanged so the next dirty export retries).
+### Download (`syncNow` / `onAuthChange(true)` / `ensureDownloaded`)
+
+For each _bound_ slot, `downloadMemcard(userId, label)` →
+`memcardStorage.save(slot, buf)`. A 404 (or any per-slot error) on one slot is
+benign and does **not** abort the other slot's download — each slot is wrapped
+in its own try/catch. `onSyncStart` / `onSyncComplete` fire once per pass (not
+per slot) so the `SyncChip` UX is unchanged. Unbound slots are skipped.
+
+`ensureDownloaded()` (used by `_onMemcardLoadRequest` before handing cards to
+the worker) awaits an in-flight `syncNow` if one is running.
+
+### Upload (`onMemcardDirty(slot, bytes)`)
+
+Per-slot: no-op if the slot has no binding or the repo is unauthed. Both slots
+1 and 2 are handled (the old slot-1-only guard is gone). Each touch stashes the
+bytes and arms a **5 s debounce timer** (`UPLOAD_DEBOUNCE_MS = 5000`). When it
+fires, a SHA-256 hash is computed; if the hash matches that slot's
+`lastUploadedHash`, the upload is skipped (no change). Otherwise it uploads via
+`repo.uploadMemcard(buf, userId, label, recordId)` — the optional `recordId`
+(the binding's `id`) upserts by record id so **renaming a mounted card cannot
+create a duplicate**. On success the slot's hash is stored; on failure the
+hash is left unchanged so the next dirty export retries.
+
+If both slots have pending bytes simultaneously, they drain sequentially within
+one `_flushUpload` pass (a single `_uploading` flag guards the whole pass).
+The mid-flight re-arm path (1 s `RETRY_WHILE_UPLOADING_MS`) is preserved.
 
 ### First-time user flow
 
-1. User registers → auth → `onAuthChange(true)` → `syncNow()` → no cloud
-   memcard → no-op.
-2. Worker boots with empty memcard (normal PS1 behavior).
-3. User plays, game writes saves to memcard.
-4. Dirty export → `onMemcardDirty` → debounced 5 s → SHA-256 check → upload.
-5. Next session: `ensureDownloaded()` gets it back.
+1. User registers → auth → `onAuthChange(true)` → `syncNow()` → no bound slots
+   (or no cloud cards yet) → no-op.
+2. Worker boots with empty memcards (normal PS1 behavior).
+3. Host mounts a card into a slot → `setMemcardSlotBinding`.
+4. User plays, game writes saves to a slot's card.
+5. Dirty export → `onMemcardDirty(slot, bytes)` → debounced 5 s → SHA-256 check
+   → upload under the slot's binding.
+6. Next session: `ensureDownloaded()` downloads both bound slots back into IDB.
 
 ### Conflict resolution
 
-Local-wins (last-write-wins). The user's current play session is
-authoritative. PS1 memory cards are opaque binary blobs — no merge is possible.
+Last-write-wins, per slot (unchanged). PS1 memory cards are opaque binary
+blobs — no merge is possible.
 
 ## Cross-references
 

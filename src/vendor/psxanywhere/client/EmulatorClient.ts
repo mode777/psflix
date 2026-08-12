@@ -22,7 +22,7 @@ import { anyPortHasMouse } from './input-pure';
 import { SaveStateStore } from './SaveStateStore';
 import { SaveStateSyncEngine } from './SaveStateSyncEngine';
 import { SaveLoadController } from './save-load';
-import { MemcardSync } from './MemcardSync';
+import { MemcardSync, type SlotBinding } from './MemcardSync';
 import { IdbSaveStateStorage } from './saveStateStorage';
 import type { SaveStateStorage, Slot } from './saveStateStorage';
 import { IdbMemcardStorage } from './memcardStorage';
@@ -36,6 +36,7 @@ export type { Source, ControllerConfig, InputHandle, CaptureResult, RebindBindin
 export type { ControllerStoreEntry } from './controller-store';
 export type { SaveStateStorage, Slot } from './saveStateStorage';
 export type { MemcardStorage } from './memcardStorage';
+export type { SlotBinding } from './MemcardSync';
 export type { BiosStorage } from './bios';
 export type { ParsedHeader, ParseResult } from './saveStateHeader';
 
@@ -506,6 +507,23 @@ export class EmulatorClient extends EventTarget {
     if (!this._emu) return;
     const buf = await this._emu.exportMemcard(slot);
     if (buf) downloadMemcard(slot, buf, this._log);
+  }
+
+  /** Declare which cloud card (record id + label) is mounted in a slot, or null
+   *  to unbind. The vendored MemcardSync uses the binding to (a) route dirty
+   *  exports to the right cloud record and (b) download the right bytes on
+   *  syncNow. Host-side concern: PSflix derives the binding from the cloud
+   *  `mounted` field and the library card list. Must be called before `boot()`
+   *  for boot-restore to pull the right bytes. */
+  setMemcardSlotBinding(slot: 1 | 2, binding: SlotBinding | null): void {
+    this._memcardSync.setSlotBinding(slot, binding);
+  }
+
+  /** Re-run a download pass for every bound slot (writes IDB; the worker picks
+   *  it up on the next `memcard-load-request`, or the host may force a re-load).
+   *  Used by the host after reconciling bindings with the cloud on auth. */
+  syncMemcards(): Promise<void> {
+    return this._memcardSync.syncNow();
   }
 
   // ── Passthroughs ──────────────────────────────────────────────────

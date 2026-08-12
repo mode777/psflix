@@ -116,13 +116,19 @@ export class SaveStateSyncEngine {
     if (this._syncing || !this._repo.isAuthenticated()) return;
     this._syncing = true;
     try {
-      await this._uploadPending();
+      // Track whether this pass reconciled anything. `onSyncComplete` is only
+      // meaningful when real work happened (an upload or a download pass);
+      // firing it every tick caused the host to re-invalidate its caches once
+      // per second and hammer the backend even while idle.
+      let didWork = false;
+      if (await this._uploadPending()) didWork = true;
       if (this._shouldDownload) {
         this._log('info', 'Downloading newer save states from server...');
         await this._downloadNewer(this._activeDiscSerial);
         this._shouldDownload = false;
+        didWork = true;
       }
-      if (this._onSyncComplete) {
+      if (didWork && this._onSyncComplete) {
         try {
           this._onSyncComplete();
         } catch (e: unknown) {
@@ -136,10 +142,11 @@ export class SaveStateSyncEngine {
     }
   }
 
-  private async _uploadPending(): Promise<void> {
+  /** Upload all locally-unsynced states. Returns true if there was work to do. */
+  private async _uploadPending(): Promise<boolean> {
     const unsynced = await this._storage.getAllUnsynced();
-    if (unsynced.length > 0)
-      this._log('info', `Uploading ${unsynced.length} unsynced save states...`);
+    if (unsynced.length === 0) return false;
+    this._log('info', `Uploading ${unsynced.length} unsynced save states...`);
 
     for (const rec of unsynced) {
       try {
@@ -178,6 +185,7 @@ export class SaveStateSyncEngine {
         );
       }
     }
+    return true;
   }
 
   private async _downloadNewer(discSerial: string | null): Promise<void> {

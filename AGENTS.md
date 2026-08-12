@@ -41,17 +41,17 @@ The mocks in `psflix_design/<view>/code.html` already encode the Tailwind config
 
 ### Collections (from `pb_schema.json`)
 
-| Collection     | Purpose                             | Access                                                              |
-| -------------- | ----------------------------------- | ------------------------------------------------------------------- |
-| `users`        | Auth collection (`_pb_users_auth_`) | Self-only (`listRule`/`viewRule` scoped to `@request.auth.id`)      |
-| `games`        | A game title                        | Public list/view                                                    |
-| `discs`        | One physical disc of a game         | Public; cascade-deletes with `game`                                 |
-| `documents`    | Manuals / guides (PDF etc.)         | Public; optional relation to `game`                                 |
-| `consoles`     | BIOS host (one record: `SCPH1001`)  | Public read; no public write                                        |
-| `memory_cards` | Per-user memory card image          | Owner only (`@request.auth.id = user.id`)                           |
-| `save_state`   | Per-user save state file            | Owner only; unique on `(type, disc, user)`                          |
-| `favorites`    | User ↔ game favorite link           | Owner only (`@request.auth.id = user.id`); unique on `(user, game)` |
-| `game_discs`   | View: flattened disc for streaming  | Public list/view; read-only view of `games` ⋈ `discs`               |
+| Collection     | Purpose                                             | Access                                                              |
+| -------------- | --------------------------------------------------- | ------------------------------------------------------------------- |
+| `users`        | Auth collection (`_pb_users_auth_`)                 | Self-only (`listRule`/`viewRule` scoped to `@request.auth.id`)      |
+| `games`        | A game title                                        | Public list/view                                                    |
+| `discs`        | One physical disc of a game                         | Public; cascade-deletes with `game`                                 |
+| `documents`    | Manuals / guides (PDF etc.)                         | Public; optional relation to `game`                                 |
+| `consoles`     | BIOS host (one record: `SCPH1001`)                  | Public read; no public write                                        |
+| `memory_cards` | Per-user named card library + `mounted` slot marker | Owner only (`@request.auth.id = user.id`)                           |
+| `save_state`   | Per-user save state file                            | Owner only; unique on `(type, disc, user)`                          |
+| `favorites`    | User ↔ game favorite link                           | Owner only (`@request.auth.id = user.id`); unique on `(user, game)` |
+| `game_discs`   | View: flattened disc for streaming                  | Public list/view; read-only view of `games` ⋈ `discs`               |
 
 ### Field gotchas an agent will miss
 
@@ -62,8 +62,8 @@ The mocks in `psflix_design/<view>/code.html` already encode the Tailwind config
 - `save_state.type` select values: `auto`, `slot1`, `slot2`, `slot3` — mirrors PS1 memory card slot convention; `auto` is the autosave slot.
 - `games.languages` and `games.features` are **JSON** fields, not relations — parse client-side, do not try to expand them.
 - `games.screenshots` is `maxSelect: 10`; `discs.iso` and `documents.file` are single files. All file fields come back as filenames and must be resolved via the PocketBase files URL pattern: `/api/files/<collectionId>/<recordId>/<filename>`.
-- `save_state.data` is a required file payload; `memory_cards.data` is **optional** (`required: false`). Both back the emulator's cloud sync (Phase 2). Phase 1 persists save states + memory cards to **local IndexedDB** only via the vendored PSxAnywhere facade; the `save_state` / `memory_cards` collections are not written until Phase 2 lands. See `specs/emulator-integration/`.
-- `memory_cards.mounted` is a select (`slot1`, `slot2`) marking which slot a card is inserted into.
+- `save_state.data` is a required file payload; `memory_cards.data` is **optional** (`required: false` — a freshly created spare card may have no file until it is mounted/edited). Both back the emulator's cloud sync (Phase 2 + the memory-manager-cloud-sync spec). The vendored `MemcardSync` is **slot- + label-aware**: it uploads/downloads **both** slots, each under a host-supplied `{id, label}` binding. The host (`PsxAnywhereEmulatorService`) sets bindings from the cloud `mounted` field on auth and caches them in `localStorage` (`psflix:memcard-slots:<userId>`, now `{slot1:{id,label}|null, slot2:...}`) for boot-time restore. See `specs/memory-manager-cloud-sync/`.
+- `memory_cards` holds a **per-user library of named cards**. `mounted` (`select`: `slot1`/`slot2`) marks the card active in each slot (at most one each); it is now read/written by the manager on mount/eject. Card identity = record `id` (stable across renames); `label` is display. There is no unique index on `(label, user)` or `(user, mounted)` — the client upserts by `id` (rename-safe) and enforces slot exclusivity client-side.
 - `consoles.bios` is a single file, **optional** (`required: false`), `maxSize` 5 MB — the PS1 BIOS (`SCPH1001.BIN`). Public read matters: the CHD streaming bridge fetches it with no auth header. One record is uploaded.
 - `games.manufacturer_description` is an optional free-text field (the publisher/manufacturer blurb), separate from `games.description` (max 50000 chars).
 - `favorites` is a base collection linking `user` ↔ `game` (both required, cascade-delete) with a unique index on `(user, game)` — a user can favorite a game once. All API rules are scoped to the owner (`@request.auth.id = user.id`), so the client can list/create/delete a user's own favorites directly.
@@ -92,7 +92,7 @@ The console (`/play/:firstDiscSerial`) runs a real PS1 emulator. Spec + phased p
 
 - **Vendored facade**: `src/vendor/psxanywhere/{emulator,client,repository}` is a clean-cut copy of PSxAnywhere (treated as a black box — do not import back into PSflix). Three path aliases (`emulator-core`, `emulator-client`, `repository`) resolve it; the only external runtime dep is `pocketbase` (already present). ESLint ignores this tree; `tsconfig.audio-worklet.json` type-checks the worklet `.js` files separately. The static core `public/pcsx_rearmed.{js,wasm}` is served at the origin root.
 - **Adapters** (PSflix code in `src/features/console/services/`): `PsxAnywhereEmulatorService` wraps `EmulatorClient` and backs the `emulatorService` singleton; `PsxAnywhereRepository` implements PSxAnywhere's `Repository` over PSflix's `pb` singleton (one auth source). The vendored sync engines (`SaveStateStore`, `SaveStateSyncEngine`, `MemcardSync`) drive cloud sync against the repository — sign-in triggers a download pass, dirty memcard exports + local saves are uploaded (debounced), and conflicts resolve last-write-wins. The repository also exposes two adapter-only helpers (`deleteSaveStateBySlot`, `fetchMemcardsForUser`) that are intentionally NOT on the upstream `Repository` interface.
-- **Cloud sync UX**: `state-saved` → `syncStatus:'syncing'` + invalidate `['save-states']`; `state-sync-complete` → `syncStatus:'synced'` + invalidate both `['save-states']` and `['memory-cards']`. A `SyncChip` in the `GameWindow` header surfaces this (idle/syncing/synced/error). The shared react-query client lives in `src/lib/queryClient.ts` so the non-React service can invalidate. Memory-card slot assignment persists to `localStorage` (`psflix:memcard-slots:<userId>`); memcard block counts are lazy (cloud cards show `0/15`).
+- **Cloud sync UX**: `state-saved` → `syncStatus:'syncing'` + invalidate `['save-states']`; `state-sync-complete` → `syncStatus:'synced'` + invalidate both `['save-states']` and `['memory-cards']`. `memcard-sync-complete` → `syncStatus:'synced'` + `memoryCardManager.refreshLibrary` (cloud library + `mounted` markers; does NOT re-export or clobber running slot bytes) + invalidate `['memory-cards']`. A `SyncChip` in the `GameWindow` header surfaces this (idle/syncing/synced/error). The shared react-query client lives in `src/lib/queryClient.ts` so the non-React service can invalidate. Memory-card slot assignment persists to `localStorage` (`psflix:memcard-slots:<userId>`, now `{slot1:{id,label}|null, slot2:...}`); memcard block counts are lazy (cloud cards show `0/15`). Cross-device card changes apply on the next boot (decision: no hot-swap into the running emulator).
 - **Canvas**: `GameWindow` mounts a stable `<canvas>`; `useEmulator` runs the boot order (attach → resume → loadDisc) as one sequenced async chain. The facade swaps the canvas on `reset()`; the ref is re-bound via `emulatorService.getCanvas()`.
 - **Cross-origin isolation** (non-negotiable): `SharedArrayBuffer` requires `COOP: same-origin`, `COEP: require-corp`, `CORP: same-origin` on every response. Vite sends them in dev (`vite.config.ts`); prod needs a reverse proxy in front of PocketBase (deployed via Flux, out of repo). Verify `self.crossOriginIsolated === true` in the browser.
 - **BIOS**: the facade fetches `SCPH1001.BIN` from the `consoles` collection at `loadDisc` time (public read, no auth header).

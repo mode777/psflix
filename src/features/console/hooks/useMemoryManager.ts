@@ -1,10 +1,10 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import { parseMemoryCard } from 'mcrreader';
-import {
-  memoryCardManager,
-  type MemoryManagerSlotView,
-  type MemoryManagerView,
-  type MemorySlotNumber,
+import { memoryCardManager } from '../services';
+import type {
+  MemoryManagerSlotView,
+  MemoryManagerView,
+  MemorySlotNumber,
 } from '../memcards/memoryCardManager';
 
 function viewForSlot(

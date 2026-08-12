@@ -20,6 +20,7 @@ import {
   STATE_MIDDLE,
 } from 'mcrreader';
 import type { Save } from 'mcrreader';
+import { writeFrameChecksum } from './mcrChecksum';
 
 const LAST_BLOCK_HI = (LAST_BLOCK >> 8) & 0xff;
 const LAST_BLOCK_LO = LAST_BLOCK & 0xff;
@@ -65,6 +66,7 @@ function freeBlock(bytes: Uint8Array, index: number): void {
   bytes[frame] = STATE_FREE;
   bytes[frame + DIR_NEXT] = LAST_BLOCK_LO;
   bytes[frame + DIR_NEXT + 1] = LAST_BLOCK_HI;
+  writeFrameChecksum(bytes, frame);
   const data = dataOffsetFor(index);
   bytes.fill(0, data, data + SECTOR_SIZE);
 }
@@ -123,6 +125,7 @@ function writeChain(copy: Uint8Array, alloc: number[], save: Save): void {
     }
     const next = i + 1 < alloc.length ? alloc[i + 1]! : LAST_BLOCK;
     setU16(copy, frame + DIR_NEXT, next);
+    writeFrameChecksum(copy, frame);
   });
 }
 

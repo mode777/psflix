@@ -757,6 +757,61 @@ describe('EmulatorClient', () => {
     client.destroy();
   });
 
+  // ── Memcard slot binding + cloud sync pass-throughs ───────────────
+
+  it('setMemcardSlotBinding() forwards to MemcardSync.setSlotBinding', async () => {
+    const client = new EmulatorClient(makeOpts());
+    const sync = (client as any)._memcardSync;
+    const spy = vi.spyOn(sync, 'setSlotBinding');
+
+    client.setMemcardSlotBinding(1, { id: 'c1', label: 'card-1' });
+    expect(spy).toHaveBeenCalledWith(1, { id: 'c1', label: 'card-1' });
+
+    client.setMemcardSlotBinding(2, { id: 'c2', label: 'card-2' });
+    expect(spy).toHaveBeenCalledWith(2, { id: 'c2', label: 'card-2' });
+
+    // null forwards as null (unbind)
+    client.setMemcardSlotBinding(1, null);
+    expect(spy).toHaveBeenLastCalledWith(1, null);
+
+    client.destroy();
+  });
+
+  it('syncMemcards() forwards to MemcardSync.syncNow', async () => {
+    const client = new EmulatorClient(makeOpts());
+    const sync = (client as any)._memcardSync;
+    const spy = vi.spyOn(sync, 'syncNow');
+
+    await client.syncMemcards();
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    client.destroy();
+  });
+
+  it('setMemcardSlotBinding + syncMemcards downloads both bound slots into IDB', async () => {
+    const memcardStorage = new InMemoryMemcardStorage();
+    const repo = createRepoStub({
+      isAuthenticated: () => true,
+      getCurrentUserId: () => 'u1',
+      downloadMemcard: async (_userId: string, label: string) =>
+        label === 'card-1'
+          ? { buf: new Uint8Array([11]).buffer, recordId: 'c1', updated: 't' }
+          : { buf: new Uint8Array([22]).buffer, recordId: 'c2', updated: 't' },
+    });
+    const client = new EmulatorClient(makeOpts({ repository: repo, memcardStorage }));
+
+    // Bind both slots before syncing — bindings are the per-slot download keys.
+    client.setMemcardSlotBinding(1, { id: 'c1', label: 'card-1' });
+    client.setMemcardSlotBinding(2, { id: 'c2', label: 'card-2' });
+
+    await client.syncMemcards();
+
+    expect(new Uint8Array((await memcardStorage.load(1))!)[0]).toBe(11);
+    expect(new Uint8Array((await memcardStorage.load(2))!)[0]).toBe(22);
+
+    client.destroy();
+  });
+
   // ── Memcard events handled internally ───────────────────────────────
 
   it('memcard-exported event is handled internally and NOT re-emitted', async () => {

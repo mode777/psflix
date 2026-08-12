@@ -102,7 +102,12 @@ export interface Repository {
   ): Promise<SaveStateRecordDto[]>;
 
   // Memory card cloud operations
-  uploadMemcard(buf: ArrayBuffer, userId: string, label: string): Promise<unknown>;
+  uploadMemcard(
+    buf: ArrayBuffer,
+    userId: string,
+    label: string,
+    recordId?: string,
+  ): Promise<unknown>;
   downloadMemcard(
     userId: string,
     label: string,
@@ -311,9 +316,22 @@ export class PocketbaseRepository implements Repository {
 
   // ── Memory card cloud operations ──────────────────────────────────
 
-  async uploadMemcard(buf: ArrayBuffer, userId: string, label: string) {
+  async uploadMemcard(buf: ArrayBuffer, userId: string, label: string, recordId?: string) {
     assertUserId(userId);
     assertLabel(label);
+
+    const form = new FormData();
+    form.append('user', userId);
+    form.append('label', label);
+    form.append('data', new Blob([buf as BlobPart]), 'memcard.mcd');
+
+    // Rename-safe path: when a record id is provided, upsert by id directly —
+    // skip the label-based lookup so renaming a mounted card cannot create a
+    // duplicate under the new label.
+    if (recordId) {
+      return this._pb.collection(COL.MEMCARD).update(recordId, form);
+    }
+
     let existing = null;
     try {
       existing = await this._pb
@@ -324,11 +342,6 @@ export class PocketbaseRepository implements Repository {
         /* not found — will create */
       } else throw e;
     }
-
-    const form = new FormData();
-    form.append('user', userId);
-    form.append('label', label);
-    form.append('data', new Blob([buf as BlobPart]), 'memcard.mcd');
 
     if (existing) {
       return this._pb.collection(COL.MEMCARD).update(existing.id, form);
