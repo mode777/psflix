@@ -73,6 +73,8 @@ export interface WorkerContext {
   masterN: number;
   ticksPerFrame: number;
   frameAccumulator: number;
+  speedMultiplier: number;
+  framesSincePaint: number;
   workletQuantum: number;
   workletSampleRate: number;
   /**

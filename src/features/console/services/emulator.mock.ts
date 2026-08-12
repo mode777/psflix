@@ -4,12 +4,14 @@ import type {
   ConsoleSettings,
   ControllerPorts,
   ControllerType,
+  FastForwardMode,
   MemoryCardInfo,
   PlayerRuntimeState,
   SaveSlot,
   SaveStateInfo,
   SyncStatus,
 } from '../types';
+import { FAST_FORWARD_ORDER } from '../types';
 import type { EmulatorService } from './emulator';
 import { loadSettings, saveSettings, loadControllers, saveControllers } from './persistedSlices';
 
@@ -26,11 +28,13 @@ type MockState = {
   memcardBytes: Record<number, Uint8Array | null>;
   controllers: ControllerPorts;
   settings: ConsoleSettings;
+  fastForwardMode: FastForwardMode;
   setRuntime: (patch: Partial<PlayerRuntimeState>) => void;
   setSaves: (key: string, saves: SaveStateInfo[]) => void;
   setMemcardBytes: (slot: number, bytes: Uint8Array | null) => void;
   setControllers: (patch: Partial<ControllerPorts>) => void;
   setSettings: (patch: Partial<ConsoleSettings>) => void;
+  setFastForwardMode: (mode: FastForwardMode) => void;
 };
 
 function savesKey(discId: string, userId: string): string {
@@ -49,6 +53,7 @@ const useMockStore = create<MockState>((set) => ({
   memcardBytes: { 1: null, 2: null },
   controllers: loadControllers(),
   settings: loadSettings(),
+  fastForwardMode: '1x',
   setRuntime: (patch) => set((s) => ({ runtime: { ...s.runtime, ...patch } })),
   setSaves: (key, saves) => set((s) => ({ saves: { ...s.saves, [key]: saves } })),
   setMemcardBytes: (slot, bytes) =>
@@ -65,11 +70,18 @@ const useMockStore = create<MockState>((set) => ({
       saveSettings(next);
       return { settings: next };
     }),
+  setFastForwardMode: (mode) => set({ fastForwardMode: mode }),
 }));
+
+function nextFastForwardMode(mode: FastForwardMode): FastForwardMode {
+  const i = FAST_FORWARD_ORDER.indexOf(mode);
+  return FAST_FORWARD_ORDER[(i + 1) % FAST_FORWARD_ORDER.length]!;
+}
 
 export class MockEmulatorService implements EmulatorService {
   async attachCanvas(): Promise<void> {
     // The mock has no real core to boot; no-op.
+    useMockStore.getState().setFastForwardMode('1x');
   }
 
   destroy(): void {
@@ -86,6 +98,7 @@ export class MockEmulatorService implements EmulatorService {
 
   async loadDisc(disc: DiscsResponse, region?: unknown): Promise<void> {
     void region;
+    useMockStore.getState().setFastForwardMode('1x');
     useMockStore.getState().setRuntime({ status: 'loading', currentDiscId: disc.id, elapsedMs: 0 });
     await delay(SIM_LATENCY_MS);
     useMockStore.getState().setRuntime({ status: 'playing' });
@@ -93,7 +106,10 @@ export class MockEmulatorService implements EmulatorService {
 
   async swapDisc(disc: DiscsResponse, region?: unknown): Promise<void> {
     void region;
-    await this.loadDisc(disc);
+    useMockStore.getState().setRuntime({ status: 'loading', currentDiscId: disc.id });
+    await delay(SIM_LATENCY_MS);
+    useMockStore.getState().setFastForwardMode('1x');
+    useMockStore.getState().setRuntime({ status: 'paused' });
   }
 
   async play(): Promise<void> {
@@ -111,6 +127,7 @@ export class MockEmulatorService implements EmulatorService {
   async reset(): Promise<void> {
     useMockStore.getState().setRuntime({ status: 'loading', elapsedMs: 0 });
     await delay(SIM_LATENCY_MS);
+    useMockStore.getState().setFastForwardMode('1x');
     useMockStore.getState().setRuntime({ status: 'playing' });
   }
 
@@ -218,6 +235,25 @@ export class MockEmulatorService implements EmulatorService {
   }
 
   subscribeSettings(listener: () => void): () => void {
+    return useMockStore.subscribe(listener);
+  }
+
+  getFastForwardMode(): FastForwardMode {
+    return useMockStore.getState().fastForwardMode;
+  }
+
+  setFastForwardMode(mode: FastForwardMode): void {
+    useMockStore.getState().setFastForwardMode(mode);
+  }
+
+  cycleFastForwardMode(): FastForwardMode {
+    const current = useMockStore.getState().fastForwardMode;
+    const next = nextFastForwardMode(current);
+    useMockStore.getState().setFastForwardMode(next);
+    return next;
+  }
+
+  subscribeFastForwardMode(listener: () => void): () => void {
     return useMockStore.subscribe(listener);
   }
 }

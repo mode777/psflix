@@ -9,6 +9,7 @@ import type {
   ConsoleSettings,
   ControllerPorts,
   ControllerType,
+  FastForwardMode,
   MemoryCardInfo,
   PlayerRuntimeState,
   SaveSlot,
@@ -16,6 +17,7 @@ import type {
   SyncStatus,
 } from '../types';
 import { SAVE_SLOTS } from '../types';
+import { FAST_FORWARD_ORDER } from '../types';
 import type {
   MemoryCardManager,
   MemorySlotNumber,
@@ -101,10 +103,16 @@ function mapControllerType(type: ControllerType): number {
   }
 }
 
+function nextFastForwardMode(mode: FastForwardMode): FastForwardMode {
+  const i = FAST_FORWARD_ORDER.indexOf(mode);
+  return FAST_FORWARD_ORDER[(i + 1) % FAST_FORWARD_ORDER.length]!;
+}
+
 type ServiceState = {
   runtime: PlayerRuntimeState;
   controllers: ControllerPorts;
   settings: ConsoleSettings;
+  fastForwardMode: FastForwardMode;
   /** `${discId}:${slot}` → ISO timestamp of the last local save (session-only). */
   saveMeta: Record<string, string>;
   /** Bumped whenever the facade replaces the canvas, so listeners re-render. */
@@ -113,6 +121,7 @@ type ServiceState = {
   setRuntime: (patch: Partial<PlayerRuntimeState>) => void;
   setControllers: (patch: Partial<ControllerPorts>) => void;
   setSettings: (patch: Partial<ConsoleSettings>) => void;
+  setFastForwardMode: (mode: FastForwardMode) => void;
   setSaveMeta: (key: string, iso: string) => void;
   bumpCanvas: () => void;
   setSyncStatus: (status: SyncStatus) => void;
@@ -122,6 +131,7 @@ const store = create<ServiceState>((set) => ({
   runtime: { status: 'idle', currentDiscId: null, elapsedMs: 0 },
   controllers: loadControllers(),
   settings: loadSettings(),
+  fastForwardMode: '1x',
   saveMeta: {},
   canvasGen: 0,
   syncStatus: 'idle',
@@ -138,6 +148,7 @@ const store = create<ServiceState>((set) => ({
       saveSettings(next);
       return { settings: next };
     }),
+  setFastForwardMode: (mode) => set({ fastForwardMode: mode }),
   setSaveMeta: (key, iso) => set((s) => ({ saveMeta: { ...s.saveMeta, [key]: iso } })),
   bumpCanvas: () => set((s) => ({ canvasGen: s.canvasGen + 1 })),
   setSyncStatus: (status) => set({ syncStatus: status }),
@@ -191,6 +202,8 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
 
   async attachCanvas(canvas: HTMLCanvasElement): Promise<void> {
     if (this._client) return; // idempotent
+    // Session-scoped setting: every emulator load starts from 1x.
+    this._setFastForwardMode('1x');
     this._canvasRef = canvas;
     const client = new EmulatorClient({
       canvas,
@@ -340,9 +353,32 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
    * `loadDisc()` instead — they are core state wiped by `retro_load_game`.
    */
   private _applyConfig(client: EmulatorClient): void {
-    const { crtFilter, masterVolume } = store.getState().settings;
+    const {
+      settings: { crtFilter },
+      fastForwardMode,
+    } = store.getState();
     client.setCrt(crtFilter);
-    client.setVolume(masterVolume / 100);
+    client.setFastForwardMode(fastForwardMode);
+    this._applyEffectiveVolume(client);
+  }
+
+  /** Apply output gain derived from master volume + current speed mode policy. */
+  private _applyEffectiveVolume(client: EmulatorClient): void {
+    const {
+      settings: { masterVolume },
+      fastForwardMode,
+    } = store.getState();
+    const gain = fastForwardMode === '1x' ? masterVolume / 100 : 0;
+    client.setVolume(gain);
+  }
+
+  /** Persist session mode + push runtime side effects (speed + effective gain). */
+  private _setFastForwardMode(mode: FastForwardMode): void {
+    store.getState().setFastForwardMode(mode);
+    const client = this._client;
+    if (!client) return;
+    client.setFastForwardMode(mode);
+    this._applyEffectiveVolume(client);
   }
 
   /** Push a single port's device type into the live core. */
@@ -406,6 +442,7 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     const { port1, port2 } = store.getState().controllers;
     this._applyController(client, 1, port1);
     this._applyController(client, 2, port2);
+    this._setFastForwardMode('1x');
     store.getState().setRuntime({ status: 'paused' });
   }
 
@@ -418,6 +455,7 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     const chdUrl = fileUrl(disc, iso);
     store.getState().setRuntime({ status: 'loading', currentDiscId: disc.id });
     await client.swapDisc(chdUrl, { serial: disc.serial, pal: isPAL(region, disc.serial) });
+    this._setFastForwardMode('1x');
     store.getState().setRuntime({ status: 'paused' });
   }
 
@@ -449,6 +487,7 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     this._applyConfig(client);
     await this.loadDisc(disc);
     await this.play();
+    this._setFastForwardMode('1x');
   }
 
   getRuntime(): PlayerRuntimeState {
@@ -758,10 +797,28 @@ export class PsxAnywhereEmulatorService implements EmulatorService {
     const client = this._client;
     if (!client) return;
     if (prev.crtFilter !== next.crtFilter) client.setCrt(next.crtFilter);
-    if (prev.masterVolume !== next.masterVolume) client.setVolume(next.masterVolume / 100);
+    if (prev.masterVolume !== next.masterVolume) this._applyEffectiveVolume(client);
   }
 
   subscribeSettings(listener: () => void): () => void {
+    return store.subscribe(listener);
+  }
+
+  getFastForwardMode(): FastForwardMode {
+    return store.getState().fastForwardMode;
+  }
+
+  setFastForwardMode(mode: FastForwardMode): void {
+    this._setFastForwardMode(mode);
+  }
+
+  cycleFastForwardMode(): FastForwardMode {
+    const next = nextFastForwardMode(store.getState().fastForwardMode);
+    this._setFastForwardMode(next);
+    return next;
+  }
+
+  subscribeFastForwardMode(listener: () => void): () => void {
     return store.subscribe(listener);
   }
 

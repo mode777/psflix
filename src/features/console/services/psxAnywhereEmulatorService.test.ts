@@ -4,10 +4,12 @@ import type { DiscsResponse } from '@/types/pocketbase';
 // Shared call log. vi.hoisted runs before any vi.mock factory executes, so the
 // factory below can safely close over this array.
 const calls = vi.hoisted<string[]>(() => []);
+const volumeValues = vi.hoisted<number[]>(() => []);
+const speedModes = vi.hoisted<string[]>(() => []);
 
 vi.mock('emulator-client', () => {
   // Minimal fake of the vendored EmulatorClient facade: records the call order
-  // so the test can assert controllers are pushed AFTER loadDisc resolves.
+  // so tests can assert host orchestration and fast-forward behavior.
   class FakeEmulatorClient {
     static CONTROLLER = { STANDARD: 1, ANALOG: 0x0105, DUALSHOCK: 0x0205, MOUSE: 0x0102 };
     static SLOT_AUTO = -1;
@@ -23,11 +25,28 @@ vi.mock('emulator-client', () => {
     setCrt(): void {
       calls.push('setCrt');
     }
-    setVolume(): void {
+    setVolume(v: number): void {
       calls.push('setVolume');
+      volumeValues.push(v);
+    }
+    setFastForwardMode(mode: '1x' | '2x'): void {
+      calls.push('setFastForwardMode');
+      speedModes.push(mode);
     }
     async loadDisc(): Promise<void> {
       calls.push('loadDisc');
+    }
+    async swapDisc(): Promise<void> {
+      calls.push('swapDisc');
+    }
+    async start(): Promise<void> {
+      calls.push('start');
+    }
+    stop(): void {
+      calls.push('stop');
+    }
+    async reset(): Promise<void> {
+      calls.push('reset');
     }
     setController(port: number, cfg: { device: number }): void {
       calls.push(`setController:${port}`);
@@ -53,6 +72,8 @@ describe('PsxAnywhereEmulatorService — controller config timing', () => {
 
   beforeEach(() => {
     calls.length = 0;
+    volumeValues.length = 0;
+    speedModes.length = 0;
     service = new PsxAnywhereEmulatorService();
   });
 
@@ -91,5 +112,54 @@ describe('PsxAnywhereEmulatorService — controller config timing', () => {
       service as unknown as { _client: { lastController: { device: number } | null } }
     )._client;
     expect(client.lastController?.device).toBe(EmulatorClient.CONTROLLER.DUALSHOCK);
+  });
+
+  it('initializes each emulator load to 1x and resets to 1x on disc swap', async () => {
+    await service.attachCanvas(document.createElement('canvas'));
+    const discA = { id: 'd1', serial: 'SLUS001', iso: 'game-a.chd' } as unknown as DiscsResponse;
+    const discB = { id: 'd2', serial: 'SLUS002', iso: 'game-b.chd' } as unknown as DiscsResponse;
+
+    service.setFastForwardMode('2x');
+    expect(service.getFastForwardMode()).toBe('2x');
+
+    await service.loadDisc(discA);
+    expect(service.getFastForwardMode()).toBe('1x');
+
+    service.setFastForwardMode('2x');
+    await service.swapDisc(discB);
+    expect(service.getFastForwardMode()).toBe('1x');
+  });
+
+  it('preserves in-session mode through pause/resume but resets to 1x on reset', async () => {
+    await service.attachCanvas(document.createElement('canvas'));
+    const disc = { id: 'd1', serial: 'SLUS001', iso: 'game.chd' } as unknown as DiscsResponse;
+    await service.loadDisc(disc);
+
+    service.setFastForwardMode('2x');
+    service.pause();
+    expect(service.getFastForwardMode()).toBe('2x');
+    await service.play();
+    expect(service.getFastForwardMode()).toBe('2x');
+
+    await service.reset();
+    expect(service.getFastForwardMode()).toBe('1x');
+  });
+
+  it('mutes at 2x and restores audible gain at 1x without overwriting volume setting', async () => {
+    await service.attachCanvas(document.createElement('canvas'));
+
+    service.setSettings({ masterVolume: 35 });
+    expect(volumeValues.at(-1)).toBeCloseTo(0.35, 5);
+
+    service.setFastForwardMode('2x');
+    expect(volumeValues.at(-1)).toBe(0);
+
+    service.setSettings({ masterVolume: 80 });
+    expect(volumeValues.at(-1)).toBe(0);
+
+    service.setFastForwardMode('1x');
+    expect(volumeValues.at(-1)).toBeCloseTo(0.8, 5);
+
+    expect(service.getSettings().masterVolume).toBe(80);
   });
 });

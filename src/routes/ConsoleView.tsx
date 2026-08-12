@@ -6,6 +6,7 @@ import { fileUrl } from '@/lib/pb-files';
 import { showToast } from '@/lib/toast';
 import { useEmulator } from '@/features/console/hooks/useEmulator';
 import { useConsoleSettings } from '@/features/console/hooks/useConsoleSettings';
+import { useFastForwardMode } from '@/features/console/hooks/useFastForwardMode';
 import { useSaveStates, useSaveStateMutation } from '@/features/console/hooks/useSaveStates';
 import { GameWindow } from '@/features/console/components/GameWindow';
 import { DiscSelector } from '@/features/console/components/DiscSelector';
@@ -57,6 +58,7 @@ export default function ConsoleView() {
 
   const emulator = useEmulator(firstDiscSerial, resumeSlot, discNumber, canvasRef, hasStarted);
   const settings = useConsoleSettings();
+  const fastForwardMode = useFastForwardMode();
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const fatalMsg = emulatorService.getFatal();
@@ -198,10 +200,12 @@ export default function ConsoleView() {
             canvasRef={canvasRef}
             status={runtime.status}
             crtFilter={settings.crtFilter}
+            fastForwardMode={fastForwardMode}
             title={game.title}
             backdropUrl={backdropUrl}
             onPlay={emulator.play}
             onPause={emulator.pause}
+            onCycleFastForward={() => emulatorService.cycleFastForwardMode()}
             started={hasStarted}
             onStart={() => setHasStarted(true)}
             isAuthenticated={isAuthenticated}

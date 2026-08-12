@@ -3,7 +3,7 @@ import type { MutableRefObject } from 'react';
 import { cn } from '@/lib/cn';
 import { emulatorService } from '../services';
 import { useSyncStatus } from '../hooks/useSyncStatus';
-import type { PlayerStatus, SaveSlot, SyncStatus } from '../types';
+import type { FastForwardMode, PlayerStatus, SaveSlot, SyncStatus } from '../types';
 import { NoEmulatorOverlay } from './NoEmulatorOverlay';
 import { SlotPickerDialog } from './SlotPickerDialog';
 import { VolumeControl } from './VolumeControl';
@@ -13,10 +13,12 @@ type GameWindowProps = {
   canvasRef: MutableRefObject<HTMLCanvasElement | null>;
   status: PlayerStatus;
   crtFilter: boolean;
+  fastForwardMode: FastForwardMode;
   title: string;
   backdropUrl?: string;
   onPlay: () => void;
   onPause: () => void;
+  onCycleFastForward: () => void;
   /** True once the player has pressed Play (large overlay or top-right button). */
   started: boolean;
   onStart: () => void;
@@ -33,10 +35,12 @@ export function GameWindow({
   canvasRef,
   status,
   crtFilter,
+  fastForwardMode,
   title,
   backdropUrl,
   onPlay,
   onPause,
+  onCycleFastForward,
   started,
   onStart,
   isAuthenticated,
@@ -267,6 +271,18 @@ export function GameWindow({
           >
             <span className="material-symbols-outlined text-base" aria-hidden="true">
               {isAuthenticated ? 'file_open' : 'lock'}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={canControl ? onCycleFastForward : undefined}
+            disabled={!canControl}
+            aria-label={`Fast-forward mode ${fastForwardMode}. Click to switch mode.`}
+            title={`Fast-forward ${fastForwardMode}`}
+            className="min-w-12 h-10 px-2 rounded-full flex items-center justify-center bg-black/40 backdrop-blur-md text-white/90 border border-white/10 hover:bg-black/60 transition-all active:scale-95 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span className="text-[11px] font-bold uppercase tracking-wider">
+              {fastForwardMode}
             </span>
           </button>
         </div>

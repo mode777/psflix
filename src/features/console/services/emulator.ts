@@ -2,6 +2,7 @@ import type {
   ConsoleSettings,
   ControllerPorts,
   ControllerType,
+  FastForwardMode,
   MemoryCardInfo,
   PlayerRuntimeState,
   SaveSlot,
@@ -90,4 +91,10 @@ export interface EmulatorService {
   getSettings(): ConsoleSettings;
   setSettings(patch: Partial<ConsoleSettings>): void;
   subscribeSettings(listener: () => void): () => void;
+
+  // --- fast-forward mode (session-scoped) -------------------------------
+  getFastForwardMode(): FastForwardMode;
+  setFastForwardMode(mode: FastForwardMode): void;
+  cycleFastForwardMode(): FastForwardMode;
+  subscribeFastForwardMode(listener: () => void): () => void;
 }

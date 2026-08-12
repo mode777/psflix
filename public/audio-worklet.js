@@ -43,6 +43,7 @@ var RingProcessor = class extends AudioWorkletProcessor {
   softMuteStep;
   holdL;
   holdR;
+  speedMultiplier;
   constructor() {
     super();
     this.audioSab = null;
@@ -64,10 +65,19 @@ var RingProcessor = class extends AudioWorkletProcessor {
     this.softMuteStep = 1 / Math.max(1, Math.floor(sampleRate * 5e-3));
     this.holdL = 0;
     this.holdR = 0;
+    this.speedMultiplier = 1;
     this.port.onmessage = (e) => {
       if (!e.data) return;
       if (e.data.audioSab) this.audioSab = e.data.audioSab;
-      if (e.data.tickPort) this.tickPort = e.data.tickPort;
+      if (e.data.tickPort) {
+        const tickPort = e.data.tickPort;
+        this.tickPort = tickPort;
+        tickPort.onmessage = (event) => {
+          if (event.data?.type !== "speed") return;
+          const multiplier = Number(event.data.multiplier);
+          this.speedMultiplier = multiplier === 2 || multiplier === 4 ? multiplier : 1;
+        };
+      }
       if (e.data.controlSab) this.controlView = new Int32Array(e.data.controlSab);
     };
   }
@@ -134,6 +144,24 @@ var RingProcessor = class extends AudioWorkletProcessor {
       this.ratio = this.srcRate / sampleRate;
     }
     const writeIdx = Atomics.load(header, 0) | 0;
+    if (this.speedMultiplier > 1) {
+      this.readIdx = writeIdx;
+      this.haveTwoSamples = false;
+      this.phase = 0;
+      this.holdL = 0;
+      this.holdR = 0;
+      this.softMuteGain = 0;
+      this.softMuteTarget = 0;
+      Atomics.store(header, 1, writeIdx);
+      outL.fill(0);
+      outR.fill(0);
+      totalFramesProcessed += frames;
+      if (!workerBlocked) {
+        this.tickPort.postMessage({ type: "tick" });
+        lastTickFrames = totalFramesProcessed;
+      }
+      return true;
+    }
     const samples = new Float32Array(this.audioSab, AUDIO_HEADER_BYTES);
     const cap = this.capacity;
     let readIdx = this.readIdx;

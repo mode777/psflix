@@ -593,6 +593,11 @@ export class Emulator extends EventTarget {
     this._audio.setVolume(v);
   }
 
+  setFastForwardMode(mode: '1x' | '2x') {
+    if (!this._worker) return;
+    this._worker.postMessage({ type: MSG.SET_SPEED_MODE, mode });
+  }
+
   setCrt(on: boolean) {
     if (this._worker) this._worker.postMessage({ type: MSG.CRT_TOGGLE, on: !!on });
     this._log('info', `crt: ${on ? 'on' : 'off'}`);

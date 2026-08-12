@@ -9,8 +9,9 @@ export { PAL_FPS, isPalCdrom, computeTicksPerFrame } from './timing';
 /** Real-time fps for the frame clock: an explicit PAL override wins, else the
  *  core-reported AV_FPS (which is only ever published pre-load as NTSC 60). */
 export function effectiveFps(ctx: WorkerContext): number {
-  if (ctx.timingFps > 0) return ctx.timingFps;
-  return readFps(ctx);
+  const base = ctx.timingFps > 0 ? ctx.timingFps : readFps(ctx);
+  const mult = ctx.speedMultiplier > 0 ? ctx.speedMultiplier : 1;
+  return base * mult;
 }
 
 /** Overwrite the audioSAB AV_FPS slot so STATS.targetFps / perfWarn are honest. */
@@ -77,13 +78,19 @@ export function onAudioTick(ctx: WorkerContext, e: MessageEvent, paintFromSab: (
   }
   if (e.data.type !== 'tick' || !ctx.audioClockActive) return;
   ctx.audioTickCount++;
+  const mult = ctx.speedMultiplier > 0 ? ctx.speedMultiplier : 1;
   ctx.frameAccumulator += 1.0;
-  if (ctx.frameAccumulator > 2 * ctx.ticksPerFrame) ctx.frameAccumulator = 2 * ctx.ticksPerFrame;
+  const maxAccum = 2 * ctx.ticksPerFrame;
+  if (ctx.frameAccumulator > maxAccum) ctx.frameAccumulator = maxAccum;
   while (ctx.frameAccumulator >= ctx.ticksPerFrame) {
     ctx.cfunc.host_run_frame();
     ctx.retroRunCount++;
     ctx.fpsCounter++;
-    paintFromSab();
+    ctx.framesSincePaint++;
+    if (ctx.framesSincePaint >= mult) {
+      paintFromSab();
+      ctx.framesSincePaint = 0;
+    }
     ctx.frameAccumulator -= ctx.ticksPerFrame;
   }
 }

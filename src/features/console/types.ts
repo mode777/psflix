@@ -13,6 +13,7 @@ export type PlayerStatus = 'idle' | 'loading' | 'playing' | 'paused';
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
 
 export type ControllerType = 'none' | 'standard' | 'dualshock' | 'mouse';
+export type FastForwardMode = '1x' | '2x';
 
 export type SaveSlot = SaveStateTypeOptions;
 
@@ -44,6 +45,8 @@ export type PlayerRuntimeState = {
   currentDiscId: string | null;
   elapsedMs: number;
 };
+
+export const FAST_FORWARD_ORDER: FastForwardMode[] = ['1x', '2x'];
 
 export type ControllerPorts = {
   port1: ControllerType;

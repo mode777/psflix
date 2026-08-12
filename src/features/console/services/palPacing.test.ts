@@ -17,4 +17,12 @@ describe('frame pacing math (worker audio-clock)', () => {
     expect(computeTicksPerFrame(44100, 50, 128)).toBeCloseTo(6.8906, 3);
     expect(computeTicksPerFrame(48000, 50, 512)).toBeCloseTo(1.875, 5);
   });
+
+  it('supports fast-forward pacing by reducing ticks/frame at higher target fps', () => {
+    const oneX = computeTicksPerFrame(48000, 60, 128);
+    const twoX = computeTicksPerFrame(48000, 120, 128);
+    const fourX = computeTicksPerFrame(48000, 240, 128);
+    expect(twoX).toBeCloseTo(oneX / 2, 5);
+    expect(fourX).toBeCloseTo(oneX / 4, 5);
+  });
 });

@@ -528,6 +528,10 @@ export class EmulatorClient extends EventTarget {
 
   // ── Passthroughs ──────────────────────────────────────────────────
 
+  setFastForwardMode(mode: '1x' | '2x'): void {
+    this._emu?.setFastForwardMode(mode);
+  }
+
   setVolume(v: number): void {
     this._emu?.setVolume(v);
   }

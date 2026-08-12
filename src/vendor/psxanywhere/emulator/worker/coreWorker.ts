@@ -5,7 +5,7 @@ import { MSG } from '../messages';
 import { WorkerContext, post, logInfo, logWarn, logError, BOOT, bootHas } from './context';
 import { flushMemcards, handleMemcardExport, handleMemcardImport } from './memcard';
 import { handleSaveState, handleLoadState } from './save-load';
-import { warmupTick, readFps } from './audio-clock';
+import { warmupTick, effectiveFps, recomputeMasterN } from './audio-clock';
 import {
   handleInit,
   handleBios,
@@ -36,6 +36,8 @@ const ctx: WorkerContext = {
   masterN: 6,
   ticksPerFrame: 1,
   frameAccumulator: 0,
+  speedMultiplier: 1,
+  framesSincePaint: 0,
   workletQuantum: 0,
   workletSampleRate: 0,
   timingFps: 0,
@@ -141,6 +143,8 @@ function dispatch(msg: any) {
         return handleRunStart();
       case MSG.RUN_STOP:
         return handleRunStop();
+      case MSG.SET_SPEED_MODE:
+        return handleSetSpeedMode(msg);
       case MSG.CRT_TOGGLE:
         ctx.crtOn = !!msg.on;
         logInfo(`worker: crt ${ctx.crtOn ? 'on' : 'off'}`);
@@ -223,6 +227,19 @@ function handleSetControllerDevice(msg: any) {
   }
   ctx.cfunc.host_set_controller_port_device(port, device);
   post({ type: MSG.SET_CONTROLLER_DEVICE_RESULT, ok: true, port, device });
+}
+
+function handleSetSpeedMode(msg: any) {
+  const mode = typeof msg.mode === 'string' ? msg.mode : '1x';
+  const mult = mode === '2x' ? 2 : 1;
+  if (ctx.speedMultiplier === mult) return;
+  const prev = ctx.speedMultiplier;
+  ctx.speedMultiplier = mult;
+  ctx.frameAccumulator = 0;
+  ctx.framesSincePaint = 0;
+  ctx.audioTickPort?.postMessage({ type: 'speed', multiplier: mult });
+  recomputeMasterN(ctx, 'speed-mode');
+  logInfo(`worker: speed mode ${mode} (${prev}x -> ${ctx.speedMultiplier}x)`);
 }
 
 function tick() {
@@ -309,7 +326,7 @@ function tick() {
         streamLocalRefills,
         streamLocalRefillBytes,
         audioClockActive: ctx.audioClockActive,
-        targetFps: readFps(ctx),
+        targetFps: effectiveFps(ctx),
         ticksPerFrame: ctx.ticksPerFrame,
       });
     }, 1000);

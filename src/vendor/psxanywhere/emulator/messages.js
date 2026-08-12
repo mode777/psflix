@@ -19,6 +19,7 @@ export const MSG = Object.freeze({
   CD: 'cd',
   RUN_START: 'run:start',
   RUN_STOP: 'run:stop',
+  SET_SPEED_MODE: 'speed:mode',
   CRT_TOGGLE: 'crt:toggle',
   CRT_PARAM: 'crt:param',
   MEMCARD_EXPORT: 'memcard:export',
