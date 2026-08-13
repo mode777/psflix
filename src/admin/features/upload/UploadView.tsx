@@ -53,7 +53,7 @@ export function UploadView() {
         )}
 
         {(state.stage === 'uploading' || state.stage === 'done') && (
-          <UploadProgress games={state.games} overall={pipeline.overallProgress()} />
+          <UploadProgress games={state.games} />
         )}
 
         {state.stage === 'done' && state.summary && (
@@ -159,7 +159,6 @@ function intakeLabel(status: string, error: string | null): string {
 
 function UploadProgress({
   games,
-  overall,
 }: {
   games: Array<{
     firstDiscSerial: string;
@@ -171,11 +170,13 @@ function UploadProgress({
       progress: { loaded: number; total: number } | null;
     }>;
   }>;
-  overall: { completed: number; uploading: number; remaining: number };
 }) {
   const discs = games.flatMap((g) => g.discItems);
   const total = discs.length;
   const doneCount = discs.filter((d) => ['uploaded', 'exists', 'error'].includes(d.status)).length;
+  const completed = discs.filter((d) => d.status === 'uploaded' || d.status === 'exists').length;
+  const uploading = discs.filter((d) => d.status === 'uploading').length;
+  const remaining = discs.filter((d) => d.status === 'ready').length;
   const overallPct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
   const current = discs.find((d) => d.status === 'uploading');
 
@@ -191,7 +192,7 @@ function UploadProgress({
         <div className="flex items-baseline justify-between">
           <h2 className="text-headline-lg text-white">Uploading discs</h2>
           <span className="text-body-md text-on-surface-variant tabular-nums">
-            {overall.completed} done · {overall.uploading} uploading · {overall.remaining} remaining
+            {completed} done · {uploading} uploading · {remaining} remaining
           </span>
         </div>
         <ProgressBar pct={overallPct} />

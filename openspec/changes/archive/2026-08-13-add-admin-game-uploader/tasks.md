@@ -16,6 +16,8 @@ Implements `specs/admin/game-upload/spec.md` and the navigation delta in `specs/
 - [x] 2.3 Unit-test `normalizeMetadata` field mapping against a sample psxdatacenter JSON (assert `firstDiscSerial` comes from `discs[0].printed_serial`, languages/features are arrays, screenshot cap ≤ 5)
 - [x] 2.4 Confirm CORS behavior on the psxdatacenter + image hosts: if image fetch is CORS-blocked, ensure the game is still created without that image (graceful degradation)
 
+> **Revision (manual e2e, 7.4):** psxdatacenter image hosts send no CORS headers, so raw `fetch()` of cover/screenshot bytes is blocked in the browser. `downloadImage` now routes every fetch through the `wsrv.nl` CORS-enabled image proxy (`?url=…&output=jpg`) — see design.md Decision 7 and Risks. Covered by the `proxyImageUrl` unit tests; the per-image null fallback is unchanged.
+
 ## 3. Disc upload with progress (D3)
 
 - [x] 3.1 Implement `buildMultipart(fields, isoFile)` constructing the `multipart/form-data` body (boundary, `serial`/`index`/`game` field parts, file header/footer) — port the CLI's `discs.js` boundary logic
@@ -31,6 +33,11 @@ Implements `specs/admin/game-upload/spec.md` and the navigation delta in `specs/
 - [x] 4.4 Implement the orchestration hook (`useImportPipeline`): intake → identify (worker) + enrich (fetch) + existence-check per file, in parallel; failures become individual failed items without aborting the batch; group ready items by game
 - [x] 4.5 Implement approval→upload: create each game lazily (only if a disc will upload), then upload its discs **sequentially** (D4), updating per-file and overall progress; a per-disc failure marks that item `error` and continues to the next disc
 - [x] 4.6 Unit-test the grouping (multi-disc → one game) and index assignment (disc `index` taken from metadata disc-list position, independent of ingest order)
+
+> **Revision (manual e2e, 7.4):** two upload-flow bugs fixed in `useImportPipeline` + `UploadProgress`:
+>
+> 1. `updateItem` now patches the grouped `games[].discItems` as well as the flat `items` list — previously the progress panel read the stale review-time `games` snapshot, so discs never showed `uploading`/`uploaded` and overall progress stayed 0% ("waiting" after done). Overall counts are now derived in `UploadProgress` from the fresh `games` prop (the `overallProgress()` ref-reader was removed).
+> 2. Existence misses are now self-healing at upload time: if `createGame` fails, the pipeline re-runs `findGame` and reuses an existing game instead of failing the batch; if `uploadDisc` fails, it re-runs `findDisc` and marks an already-present disc as skipped rather than error. Regression tests: `useImportPipeline.test.ts`.
 
 ## 5. Admin shell: sidebar navigation + route (D1; spec: Multi-view admin navigation)
 
@@ -53,4 +60,4 @@ Implements `specs/admin/game-upload/spec.md` and the navigation delta in `specs/
 - [x] 7.1 Run `npm run typecheck` and `npm run lint` green
 - [x] 7.2 Run `npm run build` and `npm run verify:build` green; confirm the extraction worker is emitted correctly under the multi-entry build and the admin bundle still does not pull the emulator chunk
 - [x] 7.3 Run the unit test suite (`npm test`) green, including the new extractor/metadata/multipart/grouping tests
-- [ ] 7.4 Manual end-to-end against the live backend: sign in to admin → open Upload → drop a small CHD → see it identified and enriched → review → approve → observe progress to completion; then drop the same CHD again and confirm the disc is detected as existing and skipped; confirm a multi-disc title groups correctly and a non-PS1/unknown CHD shows as a failed item without aborting the batch
+- [x] 7.4 Manual end-to-end against the live backend: sign in to admin → open Upload → drop a small CHD → see it identified and enriched → review → approve → observe progress to completion; then drop the same CHD again and confirm the disc is detected as existing and skipped; confirm a multi-disc title groups correctly and a non-PS1/unknown CHD shows as a failed item without aborting the batch

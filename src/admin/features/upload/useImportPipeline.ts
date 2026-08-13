@@ -10,7 +10,7 @@ import {
   type PipelineStage,
   type UploadSummary,
 } from './pipeline';
-import { createGame, findDisc, findGame } from './catalog';
+import { createGame, findDisc, findGame, type GameRecord } from './catalog';
 import { uploadDisc } from './uploadDisc';
 
 export type ImportState = {
@@ -82,10 +82,22 @@ export function useImportPipeline() {
     };
   }, []);
 
+  /**
+   * Patch one disc item wherever it lives: the flat `items` list (intake view,
+   * review recompute) AND the grouped `games[].discItems` copy (progress view,
+   * overall counts). Patching both keeps every render source consistent —
+   * without it, upload status changes land only in `items` while the progress
+   * panel reads the stale review-time `games` snapshot.
+   */
   const updateItem = useCallback((id: string, patch: Partial<DiscItem>) => {
     setState((s) => ({
       ...s,
       items: s.items.map((it) => (it.id === id ? { ...it, ...patch } : it)),
+      games: s.games.map((g) =>
+        g.discItems.some((d) => d.id === id)
+          ? { ...g, discItems: g.discItems.map((d) => (d.id === id ? { ...d, ...patch } : d)) }
+          : g,
+      ),
     }));
   }, []);
 
@@ -208,19 +220,6 @@ export function useImportPipeline() {
     [recomputeReview],
   );
 
-  /** Overall upload progress across approved (ready + exists) discs. */
-  const overallProgress = useCallback((): {
-    completed: number;
-    uploading: number;
-    remaining: number;
-  } => {
-    const items = stateRef.current.games.flatMap((g) => g.discItems);
-    const completed = items.filter((d) => d.status === 'uploaded' || d.status === 'exists').length;
-    const uploading = items.filter((d) => d.status === 'uploading').length;
-    const remaining = items.filter((d) => d.status === 'ready' || d.status === 'error').length;
-    return { completed, uploading, remaining };
-  }, []);
-
   const startUpload = useCallback(async () => {
     const snapshot = stateRef.current;
     if (snapshot.stage !== 'review') return;
@@ -254,15 +253,31 @@ export function useImportPipeline() {
           updateGame(game.firstDiscSerial, { status: 'created', createdGameId: gameId });
           summary.gamesCreated += 1;
         } catch (err) {
-          updateGame(game.firstDiscSerial, { status: 'error' });
-          for (const disc of readyDiscs) {
-            updateItem(disc.id, {
-              status: 'error',
-              error: `Game creation failed: ${errMessage(err)}`,
-            });
-            summary.failed += 1;
+          // Robustness: the intake-time existence check may have missed an
+          // existing game (transient error or a race between review and
+          // approval). Retry the lookup before failing the batch — an existing
+          // game is reused so its new discs still upload.
+          let existing: GameRecord | null = null;
+          try {
+            existing = await findGame(game.firstDiscSerial);
+          } catch {
+            existing = null;
           }
-          continue;
+          if (existing) {
+            gameId = existing.id;
+            updateGame(game.firstDiscSerial, { status: 'reused', existingGameId: existing.id });
+            summary.gamesReused += 1;
+          } else {
+            updateGame(game.firstDiscSerial, { status: 'error' });
+            for (const disc of readyDiscs) {
+              updateItem(disc.id, {
+                status: 'error',
+                error: `Game creation failed: ${errMessage(err)}`,
+              });
+              summary.failed += 1;
+            }
+            continue;
+          }
         }
       }
 
@@ -284,13 +299,27 @@ export function useImportPipeline() {
           updateItem(disc.id, { status: 'uploaded', progress: null });
           summary.discsUploaded += 1;
         } catch (err) {
-          // Per-disc failure marks this disc and continues to the next.
-          updateItem(disc.id, {
-            status: 'error',
-            error: `Upload failed: ${errMessage(err)}`,
-            progress: null,
-          });
-          summary.failed += 1;
+          // Robustness: the disc may already exist in the catalog (the intake
+          // check missed it, or another device uploaded it meanwhile). Re-check
+          // and treat an existing disc as skipped rather than failed.
+          let alreadyThere = false;
+          try {
+            alreadyThere = !!(await findDisc(disc.discId as string));
+          } catch {
+            alreadyThere = false;
+          }
+          if (alreadyThere) {
+            updateItem(disc.id, { status: 'exists', existingDisc: true, progress: null });
+            summary.discsSkipped += 1;
+          } else {
+            // Per-disc failure marks this disc and continues to the next.
+            updateItem(disc.id, {
+              status: 'error',
+              error: `Upload failed: ${errMessage(err)}`,
+              progress: null,
+            });
+            summary.failed += 1;
+          }
         }
       }
     }
@@ -312,6 +341,5 @@ export function useImportPipeline() {
     removeGame,
     startUpload,
     reset,
-    overallProgress,
   };
 }

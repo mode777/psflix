@@ -1,14 +1,30 @@
 /**
  * Image-download helper. Cross-origin cover/screenshot URLs from psxdatacenter
- * are fetched and re-uploaded as `File` objects (no hot-linking). A per-image
- * failure (network error, non-OK status, or a CORS-blocked response) resolves
- * `null` rather than throwing, so the game is still created without that image
- * (graceful degradation, per design.md "Risks / Trade-offs").
+ * are fetched and re-uploaded as `File` objects (no hot-linking).
+ *
+ * psxdatacenter serves images **without CORS headers**, so the browser cannot
+ * read their bytes directly (verified in manual e2e). Every download is routed
+ * through `wsrv.nl`, a purpose-built image proxy that sends
+ * `Access-Control-Allow-Origin: *`. A per-image failure (proxy down, network
+ * error, non-OK status) resolves `null` rather than throwing, so the game is
+ * still created without that image (graceful degradation).
  */
 
 /** Maximum screenshots stored per game (`games.screenshots` `maxSelect: 10`; the
  * pipeline caps at 5 to keep upload size bounded, matching the CLI). */
 export const MAX_SCREENSHOTS = 5;
+
+/** CORS-enabled image proxy base (wsrv.nl is the successor domain of images.weserv.nl). */
+const IMAGE_PROXY_BASE = 'https://wsrv.nl/';
+
+/**
+ * Rewrite a raw image URL into a proxy URL. `output=jpg` normalizes every image
+ * to JPEG (smaller, uniform); the proxy fetches server-side and returns the
+ * bytes with permissive CORS headers.
+ */
+export function proxyImageUrl(url: string): string {
+  return `${IMAGE_PROXY_BASE}?url=${encodeURIComponent(url)}&output=jpg`;
+}
 
 /** Pure helper: take the first `max` screenshot URLs (default cap of 5). */
 export function capScreenshotUrls(urls: string[], max: number = MAX_SCREENSHOTS): string[] {
@@ -18,7 +34,7 @@ export function capScreenshotUrls(urls: string[], max: number = MAX_SCREENSHOTS)
 export async function downloadImage(url: string): Promise<File | null> {
   let response: Response;
   try {
-    response = await fetch(url);
+    response = await fetch(proxyImageUrl(url), { signal: AbortSignal.timeout(30_000) });
   } catch {
     return null;
   }

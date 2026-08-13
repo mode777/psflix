@@ -5,7 +5,7 @@ import {
   normalizeMetadata,
   type PsxDatacenterGame,
 } from './metadata';
-import { capScreenshotUrls, downloadImage } from './images';
+import { capScreenshotUrls, downloadImage, proxyImageUrl } from './images';
 
 /** Minimal sample modeled on `psx-uploader/samples/SLUS-00797.json`. */
 const sample: PsxDatacenterGame = {
@@ -112,10 +112,35 @@ describe('fetchGameMetadata', () => {
   });
 });
 
+describe('proxyImageUrl', () => {
+  it('routes the raw image URL through the CORS-enabled proxy and forces jpeg', () => {
+    const url = 'https://psxdatacenter.com/images/covers/U/R/SLUS-00797.jpg';
+    expect(proxyImageUrl(url)).toBe(
+      'https://wsrv.nl/?url=https%3A%2F%2Fpsxdatacenter.com%2Fimages%2Fcovers%2FU%2FR%2FSLUS-00797.jpg&output=jpg',
+    );
+  });
+});
+
 describe('downloadImage graceful degradation', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('returns null when the image fetch is CORS-blocked (network throw)', async () => {
+  it('fetches via the image proxy, not the raw (CORS-less) host', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-type': 'image/jpeg' }),
+      arrayBuffer: async () => new ArrayBuffer(4),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const file = await downloadImage('https://psxdatacenter.com/covers/SLUS-00797.jpg');
+    expect(file).not.toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('wsrv.nl/?url=https%3A%2F%2Fpsxdatacenter.com'),
+      expect.anything(),
+    );
+  });
+
+  it('returns null when the proxy fetch fails (CORS-blocked / proxy down)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Failed to fetch')));
     expect(await downloadImage('https://psxdatacenter.com/img.jpg')).toBeNull();
   });
