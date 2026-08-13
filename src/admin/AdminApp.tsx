@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { cn } from '@/lib/cn';
 import psLogo from '@/assets/playstation-logo.webp';
@@ -7,6 +7,8 @@ import { adminAuth } from '@/admin/lib/pb-auth';
 import { useAdminAuthStore } from '@/admin/features/auth/store';
 import { SignInView } from '@/admin/features/auth/SignInView';
 import { DashboardView } from '@/admin/features/dashboard/DashboardView';
+import { UploadView } from '@/admin/features/upload/UploadView';
+import { AdminSidebar } from '@/admin/components/AdminSidebar';
 import { fetchCount } from '@/admin/features/dashboard/api';
 
 type BootState = 'validating' | 'ready';
@@ -16,6 +18,10 @@ type BootState = 'validating' | 'ready';
  * `Header` is deliberately NOT mounted here), the superuser auth gate, and boot
  * validation of any stored token. Uses `HashRouter` (mounted in `main.tsx`) so
  * every route resolves to `admin.html` without server-side rewrites.
+ *
+ * The shell is a persistent sidebar layout (Decision 1 of the game-uploader
+ * design): `<AdminSidebar>` stays mounted across admin areas while a
+ * `<Routes>`/content region hosts the Dashboard (`/`) and Upload (`/upload`).
  */
 export function AdminApp() {
   const isAuthenticated = useAdminAuthStore((s) => s.isAuthenticated);
@@ -59,11 +65,18 @@ export function AdminApp() {
   if (!isAuthenticated) return <SignInView />;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       <AdminHeader email={user?.email} onSignOut={() => void adminAuth.signOut()} />
-      <Routes>
-        <Route path="/" element={<DashboardView />} />
-      </Routes>
+      <div className="flex flex-1">
+        <AdminSidebar />
+        <main className="flex-1 min-w-0">
+          <Routes>
+            <Route path="/" element={<DashboardView />} />
+            <Route path="/upload" element={<UploadView />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+      </div>
     </div>
   );
 }
