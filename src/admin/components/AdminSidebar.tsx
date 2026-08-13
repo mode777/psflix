@@ -10,6 +10,7 @@ import { cn } from '@/lib/cn';
 const NAV_ENTRIES = [
   { to: '/', label: 'Dashboard', icon: 'space_dashboard', end: true },
   { to: '/upload', label: 'Upload', icon: 'upload_file', end: false },
+  { to: '/documents', label: 'Documents', icon: 'menu_book', end: false },
 ] as const;
 
 export function AdminSidebar() {

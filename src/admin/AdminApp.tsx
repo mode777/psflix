@@ -8,6 +8,7 @@ import { useAdminAuthStore } from '@/admin/features/auth/store';
 import { SignInView } from '@/admin/features/auth/SignInView';
 import { DashboardView } from '@/admin/features/dashboard/DashboardView';
 import { UploadView } from '@/admin/features/upload/UploadView';
+import { DocumentsView } from '@/admin/features/documents/DocumentsView';
 import { AdminSidebar } from '@/admin/components/AdminSidebar';
 import { fetchCount } from '@/admin/features/dashboard/api';
 
@@ -73,6 +74,7 @@ export function AdminApp() {
           <Routes>
             <Route path="/" element={<DashboardView />} />
             <Route path="/upload" element={<UploadView />} />
+            <Route path="/documents" element={<DocumentsView />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
