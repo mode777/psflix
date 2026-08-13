@@ -26,6 +26,7 @@ vi.mock('emulator-client', () => {
     start = vi.fn(async () => {});
     stop = vi.fn(() => {});
     setCrt = vi.fn(() => {});
+    setFastForwardMode = vi.fn(() => {});
     setVolume = vi.fn(() => {});
     setController = vi.fn(() => {});
     clearController = vi.fn(() => {});
