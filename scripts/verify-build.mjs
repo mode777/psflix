@@ -11,6 +11,8 @@ const dist = resolve(root, 'dist');
 const port = 5174;
 const baseUrl = `http://localhost:${port}`;
 
+const isWindows = process.platform === 'win32';
+
 const log = (msg) => console.log(`[verify:build] ${msg}`);
 const fail = (msg) => {
   console.error(`[verify:build] FAIL: ${msg}`);
@@ -19,7 +21,7 @@ const fail = (msg) => {
 
 const run = (cmd, args, opts = {}) =>
   new Promise((resolveRun, rejectRun) => {
-    const child = spawn(cmd, args, { stdio: 'inherit', cwd: root, ...opts });
+    const child = spawn(cmd, args, { stdio: 'inherit', cwd: root, shell: isWindows, ...opts });
     child.on('error', rejectRun);
     child.on('exit', (code) => {
       if (code === 0) resolveRun();
@@ -31,12 +33,30 @@ const startServe = () => {
   const child = spawn('npx', ['--yes', 'serve', dist, '-p', String(port), '--no-clipboard'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: root,
+    shell: isWindows,
   });
 
   child.stdout.on('data', (chunk) => process.stdout.write(`[serve] ${chunk}`));
   child.stderr.on('data', (chunk) => process.stderr.write(`[serve] ${chunk}`));
 
   return child;
+};
+
+/**
+ * Kill a long-lived child and its descendants. On Windows `shell: true` wraps
+ * `npx` in a `cmd.exe` process; a plain `child.kill()` only terminates that
+ * shell, orphaning the real server. The orphan keeps its stdout pipe open, so
+ * the Node event loop never drains and the script hangs. `taskkill /T` recurses
+ * through the whole process tree so the pipe closes and Node can exit.
+ */
+const killTree = (child) => {
+  if (child.__killed || child.pid == null) return;
+  child.__killed = true;
+  if (isWindows) {
+    spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', shell: true });
+  } else {
+    child.kill('SIGTERM');
+  }
 };
 
 const waitForServer = async (url, attempts = 40) => {
@@ -108,9 +128,7 @@ const main = async () => {
   }
 
   const server = startServe();
-  const cleanup = () => {
-    if (!server.killed) server.kill('SIGTERM');
-  };
+  const cleanup = () => killTree(server);
   process.on('exit', cleanup);
   process.on('SIGINT', () => {
     cleanup();

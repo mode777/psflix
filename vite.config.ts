@@ -26,6 +26,10 @@ export default defineConfig({
     target: 'es2020',
     sourcemap: true,
     rollupOptions: {
+      input: {
+        main: 'index.html',
+        admin: 'admin.html',
+      },
       output: {
         manualChunks: {
           pocketbase: ['pocketbase'],

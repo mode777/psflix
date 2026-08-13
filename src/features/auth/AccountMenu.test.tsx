@@ -85,6 +85,14 @@ describe('AccountMenu', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
+  it('renders an Admin link that navigates to the separate admin bundle', () => {
+    render(<AccountMenu />);
+    fireEvent.click(screen.getByRole('button', { name: /account menu/i }));
+    const adminLink = screen.getByRole('menuitem', { name: /admin/i }) as HTMLAnchorElement;
+    expect(adminLink.tagName).toBe('A');
+    expect(adminLink.getAttribute('href')).toBe('/admin.html');
+  });
+
   it('closes the menu when Escape is pressed', () => {
     render(<AccountMenu />);
     fireEvent.click(screen.getByRole('button', { name: /account menu/i }));

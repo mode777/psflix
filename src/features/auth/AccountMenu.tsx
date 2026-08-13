@@ -82,6 +82,19 @@ export function AccountMenu() {
             </p>
             <p className="text-on-surface-variant text-body-md truncate">{user.email}</p>
           </div>
+          <a
+            href="/admin.html"
+            role="menuitem"
+            className={cn(
+              'mt-1 flex items-center gap-2 px-3 py-2 rounded-lg',
+              'text-on-surface hover:bg-white/5 transition-colors text-body-md text-left',
+            )}
+          >
+            <span className="material-symbols-outlined text-on-surface-variant">
+              admin_panel_settings
+            </span>
+            Admin
+          </a>
           <button
             type="button"
             role="menuitem"
