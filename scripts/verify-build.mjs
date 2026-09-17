@@ -30,10 +30,14 @@ const run = (cmd, args, opts = {}) =>
   });
 
 const startServe = () => {
+  // `detached` on POSIX puts npx + its descendants (the actual server) in one
+  // process group so killTree can terminate the whole tree. Needed because
+  // npm@10's npx spawns the binary as a grandchild; see killTree below.
   const child = spawn('npx', ['--yes', 'serve', dist, '-p', String(port), '--no-clipboard'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: root,
     shell: isWindows,
+    detached: !isWindows,
   });
 
   child.stdout.on('data', (chunk) => process.stdout.write(`[serve] ${chunk}`));
@@ -44,10 +48,13 @@ const startServe = () => {
 
 /**
  * Kill a long-lived child and its descendants. On Windows `shell: true` wraps
- * `npx` in a `cmd.exe` process; a plain `child.kill()` only terminates that
- * shell, orphaning the real server. The orphan keeps its stdout pipe open, so
- * the Node event loop never drains and the script hangs. `taskkill /T` recurses
- * through the whole process tree so the pipe closes and Node can exit.
+ * `npx` in a `cmd.exe` process; on POSIX npm@10's `npx` spawns the server as a
+ * grandchild of `npx`. In both cases a plain `child.kill()` only terminates
+ * the direct child, orphaning the real server. The orphan keeps its stdout
+ * pipe open, so the Node event loop never drains and the script hangs (and
+ * even CI cancel signals cannot reap the step). Windows: `taskkill /T`
+ * recurses the process tree. POSIX: the server was spawned `detached`, so
+ * `process.kill(-pid)` signals the whole process group.
  */
 const killTree = (child) => {
   if (child.__killed || child.pid == null) return;
@@ -55,7 +62,12 @@ const killTree = (child) => {
   if (isWindows) {
     spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', shell: true });
   } else {
-    child.kill('SIGTERM');
+    try {
+      process.kill(-child.pid, 'SIGTERM');
+    } catch {
+      // group already gone — fall back to the direct child
+      child.kill('SIGTERM');
+    }
   }
 };
 
@@ -151,6 +163,10 @@ const main = async () => {
   } else {
     log('verification PASSED');
   }
+
+  // Belt and braces: any lingering handle (e.g. a server descendant that
+  // outlived a kill signal) must never hang this script — exit explicitly.
+  process.exit(process.exitCode ?? 0);
 };
 
 main().catch((err) => {

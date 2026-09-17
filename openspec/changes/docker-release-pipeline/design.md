@@ -42,9 +42,11 @@ Current latest tag (2026-09-12). Prod's deployment runs `0.40` (floating minor) 
 
 - _Alternative considered_: floating `latest` like trackify — rejected; the hook uses version-sensitive server APIs, so an unrelated base-image bump could break COI/timeout behavior at runtime.
 
-### D4: CI has no emscripten/ninja steps
+### D4: CI runs `npm run build` only — no verify step
 
-Unlike trackify, PSflix's emulator core (`public/pcsx_rearmed.{js,wasm}`) and audio worklet (`public/audio-worklet.js`, pre-bundled by `scripts/build-worklet.mjs`, committed) are static files — `npm run build` = `tsc --noEmit && vite build` alone. CI runs `npm ci` (lockfile exists) + `npm run verify:build`, which rebuilds and boots `dist/` with curl checks (worklet regression guards included). One step, not two: `verify:build` invokes `npm run build` internally.
+Unlike trackify, PSflix's emulator core (`public/pcsx_rearmed.{js,wasm}`) and audio worklet (`public/audio-worklet.js`, pre-bundled by `scripts/build-worklet.mjs`, committed) are static files — `npm run build` = `tsc --noEmit && vite build` alone. CI runs `npm ci` (lockfile exists) + `npm run build`.
+
+`verify:build` stays a **local** check. The first CI run hung: npm@10's `npx` spawns the `serve` binary as a grandchild, verify's cleanup killed only the direct child, and the orphaned server kept the stdio pipes open — the step never exited and could not even be reaped by run cancellation. The script now spawns the server detached and kills the whole process group (plus an explicit final `process.exit()`), but CI keeps to plain `npm run build`: deterministic, nothing to reap.
 
 ### D5: Release workflow mirrors trackify's shape
 
@@ -60,7 +62,7 @@ Unlike trackify, PSflix's emulator core (`public/pcsx_rearmed.{js,wasm}`) and au
 - [Fresh instance is an empty catalog] → Accepted per proposal. Local devs can restore a prod backup into `pb_data/` or upload content via `:8090/_/`.
 - [Base image drift] → Exact pin `0.40.4`; bumping is a deliberate change (matches prod's minor line).
 - [Image ships an empty `pb_data`? No —] base image defaults to `/pocketbase/pb_data`, created at runtime; persistence is the runtime's volume responsibility (k8s side keeps existing data volume + rclone sidecar).
-- [`verify:build` double-builds in CI (it runs `npm run build` internally)] → Accepted for simplicity; a future `verify:dist`-style file-only check can split it if CI time matters.
+- [`verify:build` boots a server via npx] → Local-only check; the server is spawned detached and killed as a process group with a forced final exit. CI deliberately runs `npm run build` only (D4).
 - [Harbor project `my` must accept the new `psflix` repository] → Harbor creates repositories on first push; the robot account already pushes `trackify`/`pocketcloud` there.
 
 ## Migration Plan

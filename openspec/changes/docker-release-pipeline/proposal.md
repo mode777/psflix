@@ -10,7 +10,7 @@ PSflix currently has PocketBase migrations and hooks but no way to run the full 
 - Change the SPA backend URL default (in `src/lib/pb.ts` and `src/admin/lib/pb.ts`): production builds fall back to same-origin (`window.location.origin`), dev falls back to `http://127.0.0.1:8090`; an explicit `VITE_PB_URL` always wins. **BREAKING** for anyone relying on the previous hardcoded `https://psx.alexklingenbeck.de` fallback in a production build — that fallback moves to dev only.
 - Add a minimal `Dockerfile` (`FROM adrianmusante/pocketbase:0.40.4`, pinned): `dist/` → `/pocketbase/public/`, `pb_migrations/` → `/pocketbase/migrations/`, `pb_hooks/` → `/pocketbase/hooks/`. The base image entrypoint runs `pocketbase serve` and applies migrations on startup.
 - Add `publish.sh` (`docker buildx build --platform linux/amd64 --push` to `harbor.alexklingenbeck.de/my/psflix:<version>`).
-- Add GitHub Actions: `ci.yml` (checkout, Node 20, `npm ci`, `npm run verify:build`) on push/PR; `release.yml` (same build steps + buildx + Harbor login via `HARBOR_USERNAME`/`HARBOR_PASSWORD` secrets + `./publish.sh "${GITHUB_REF_NAME#v}"`) on `v*` tags. No emsdk/ninja needed (the wasm core is prebuilt static).
+- Add GitHub Actions: `ci.yml` (checkout, Node 20, `npm ci`, `npm run build`) on push/PR; `release.yml` (same build steps + buildx + Harbor login via `HARBOR_USERNAME`/`HARBOR_PASSWORD` secrets + `./publish.sh "${GITHUB_REF_NAME#v}"`) on `v*` tags. No emsdk/ninja needed (the wasm core is prebuilt static).
 - Extend `.gitignore` with `bin/` and `pb_data/`.
 - Update docs (AGENTS.md, README.md) — already done in this session — describing the image-based deploy and the hook-provided COI headers.
 

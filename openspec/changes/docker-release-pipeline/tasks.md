@@ -19,8 +19,8 @@
 
 ## 4. GitHub Actions
 
-- [x] 4.1 Create `.github/workflows/ci.yml` (checkout, Node 20 + npm cache, `npm ci`, `npm run verify:build`) on push to main + PRs; verify workflow syntax with `npx yaml-lint` or actionlint if available, otherwise review manually
-- [x] 4.2 Create `.github/workflows/release.yml` (same build steps + `docker/setup-buildx-action@v3`, `docker/login-action@v3` against `harbor.alexklingenbeck.de` with `HARBOR_USERNAME`/`HARBOR_PASSWORD`, then `./publish.sh "${GITHUB_REF_NAME#v}"`) on `push: tags: ['v*']` with `permissions: contents: read`
+- [x] 4.1 Create `.github/workflows/ci.yml` (checkout, Node 20 + npm cache, `npm ci`, `npm run build` — verify:build stays local; npm@10 npx/serve orphan hangs CI) on push to main + PRs; verify workflow syntax with `npx yaml-lint` or actionlint if available, otherwise review manually
+- [x] 4.2 Create `.github/workflows/release.yml` (same build-only steps + `docker/setup-buildx-action@v3`, `docker/login-action@v3` against `harbor.alexklingenbeck.de` with `HARBOR_USERNAME`/`HARBOR_PASSWORD`, then `./publish.sh "${GITHUB_REF_NAME#v}"`) on `push: tags: ['v*']` with `permissions: contents: read`
 - [x] 4.3 Confirm secrets exist on the repo: `gh secret list -R mode777/psflix` shows `HARBOR_USERNAME` and `HARBOR_PASSWORD`
 
 ## 5. End-to-end verification

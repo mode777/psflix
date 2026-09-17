@@ -22,5 +22,5 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Build project and verify dist output
-        run: npm run verify:build
+      - name: Build project
+        run: npm run build
