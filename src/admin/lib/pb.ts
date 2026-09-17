@@ -1,6 +1,8 @@
 import PocketBase, { LocalAuthStore } from 'pocketbase';
 
-const url = import.meta.env.VITE_PB_URL || 'https://psx.alexklingenbeck.de';
+import { resolvePbUrl } from '@/lib/pb-url';
+
+const url = resolvePbUrl();
 
 /**
  * Dedicated admin PocketBase client.

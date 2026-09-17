@@ -40,13 +40,11 @@ A pre-commit hook (Husky + lint-staged) runs ESLint and Prettier on staged files
 
 ## Build
 
-Produce a static artifact that the Flux cluster consumes:
+Produce the static artifact that ships inside the Docker image:
 
     npm run build       # outputs dist/
     npm run verify:build  # boots dist/ via a local server and curls it
 
-Deployment is handled by the Flux Kubernetes cluster — see AGENTS.md.
-
 ## Deployment
 
-Handled by an external Flux Kubernetes cluster. Out of scope for this repo.
+Pushing a `v*` git tag builds the SPA, builds a Docker image (PocketBase + `dist/` + `pb_migrations/` + `pb_hooks/`) and pushes it to `harbor.alexklingenbeck.de/my/psflix:<version>`. The Flux cluster runs the image. See AGENTS.md.

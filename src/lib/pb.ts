@@ -1,6 +1,8 @@
 import PocketBase from 'pocketbase';
 
-const url = import.meta.env.VITE_PB_URL || 'https://psx.alexklingenbeck.de';
+import { resolvePbUrl } from './pb-url';
+
+const url = resolvePbUrl();
 
 export const pb = new PocketBase(url);
 

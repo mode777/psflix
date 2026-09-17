@@ -6,6 +6,10 @@ dist-ssr
 .env.*
 !.env.example
 
+# local PocketBase (downloaded binary + instance data)
+/bin/
+/pb_data/
+
 # editor / OS
 .DS_Store
 .vscode/*

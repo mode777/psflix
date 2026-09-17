@@ -16,6 +16,8 @@ module.exports = {
     'src/vendor/mcrreader',
     'tests/vendor/psxanywhere',
     'scripts/test',
+    'bin',
+    'pb_data',
   ],
   parser: '@typescript-eslint/parser',
   plugins: ['react-refresh'],
