@@ -12,6 +12,12 @@ export default defineConfig({
   base,
   appearance: 'dark',
 
+  // Isolate from the app's root postcss.config.js (Tailwind) — Vite would
+  // otherwise walk up and load it, failing when root node_modules is absent.
+  vite: {
+    css: { postcss: { plugins: [] } },
+  },
+
   themeConfig: {
     nav: [
       { text: 'Guide', link: '/', activeMatch: '^/$' },
