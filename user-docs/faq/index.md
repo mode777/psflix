@@ -6,6 +6,14 @@ Quick answers to the questions that come up most often. For deeper help, see [Tr
 
 No — you can browse and play without one. An account adds your **favorites row**, **cloud-synced save states**, and the **memory card library**. See [Getting Started](/getting-started/).
 
+## What emulator does PSflix use?
+
+PSflix plays games with [pcsx-rearmed](https://github.com/libretro/pcsx_rearmed), a mature open-source PlayStation 1 emulator, compiled to WebAssembly and running entirely in your browser. The site itself is powered by [PocketBase](https://pocketbase.io). You can read more in [Hosting & Running](/hosting/).
+
+## Can I run my own instance?
+
+Yes — PSflix is self-hosted software. The [Hosting & Running](/hosting/) chapter covers the Docker image and the local PocketBase stack, and [Administration](/admin/) explains how to add games (CHD images) and manuals.
+
 ## Which browsers work?
 
 Up-to-date versions of **Chrome, Edge, Firefox, and Safari** on desktop. The emulator requires modern browser features (cross-origin isolation in particular); privacy extensions that strip security headers can break game starts — see [the game will not start](/troubleshooting/#the-game-will-not-start-or-shows-a-black-screen).

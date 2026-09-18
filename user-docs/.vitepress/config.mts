@@ -19,10 +19,7 @@ export default defineConfig({
   },
 
   themeConfig: {
-    nav: [
-      { text: 'Guide', link: '/', activeMatch: '^/$' },
-      { text: 'Open PSflix', link: 'https://psx.alexklingenbeck.de' },
-    ],
+    nav: [{ text: 'Guide', link: '/', activeMatch: '^/$' }],
 
     sidebar: [
       {
@@ -36,6 +33,13 @@ export default defineConfig({
           { text: 'Playing Games', link: '/playing/' },
           { text: 'Save States', link: '/save-states/' },
           { text: 'Memory Cards', link: '/memory-cards/' },
+        ],
+      },
+      {
+        text: 'Self-Hosting',
+        items: [
+          { text: 'Hosting & Running', link: '/hosting/' },
+          { text: 'Administration', link: '/admin/' },
         ],
       },
       {
@@ -61,7 +65,7 @@ export default defineConfig({
     outline: { level: [2, 3], label: 'On this page' },
 
     footer: {
-      message: 'PSflix user documentation',
+      message: 'PSflix user documentation — runs pcsx-rearmed & PocketBase',
       copyright: 'PlayStation is a trademark of Sony Interactive Entertainment. PSflix is a fan project.',
     },
   },

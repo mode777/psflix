@@ -2,9 +2,13 @@
 
 PSflix is a Netflix-style catalog for PlayStation 1 games. You can browse the library without an account, but signing in unlocks your favorites row, cloud-synced save states, and a personal memory card library that follows you across devices.
 
+::: tip Where is PSflix?
+PSflix is self-hosted software — there is no single official address. If you are reading this docs site, your operator runs an instance and can give you its URL.
+:::
+
 ## Create an account
 
-1. Open [PSflix](https://psx.alexklingenbeck.de) and click the **account icon** in the header.
+1. Open your PSflix site and click the **account icon** in the header.
 2. In the sign-in dialog, choose **Create an account**.
 3. Fill in your **name**, **email**, and a **password** (at least 8 characters, entered twice).
 4. Click **Create account** — you are signed in immediately.
