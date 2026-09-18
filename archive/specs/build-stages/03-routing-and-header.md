@@ -13,7 +13,7 @@ Replace the `App.tsx` placeholder with a router, mount the persistent header onc
 
 - `react-router-dom` v6+.
 - `HashRouter` (not `BrowserRouter`) — TBH: the SPA is served from PB's `pb_public`, which has no SPA fallback. Hash routes keep everything on `index.html`.
-- All routes are hash-relative. The PB instance URL is `https://psx.alexklingenbeck.de`, so a game page looks like `https://psx.alexklingenbeck.de/#/game/SCUS-94121`.
+- All routes are hash-relative. The PB instance URL is `https://pb.example.com`, so a game page looks like `https://pb.example.com/#/game/SCUS-94121`.
 - The natural key for a game is `first_disc_serial`, not PocketBase's record ID. Use `firstDiscSerial` as the URL param.
 
 ## Files to create / edit

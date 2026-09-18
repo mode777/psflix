@@ -16,7 +16,7 @@
 
 ## 4. Documentation content
 
-- [x] 4.1 Write the Getting Started section (account creation, email/password and OAuth2 sign-in) and verify content against the running app at `https://psx.alexklingenbeck.de`
+- [x] 4.1 Write the Getting Started section (account creation, email/password and OAuth2 sign-in) and verify content against a running PSflix instance
 - [x] 4.2 Write the Browsing section (catalog grid, details view, managing favorites) and verify all described UI elements exist as documented
 - [x] 4.3 Write the Playing section (console view, controls, disc streaming, first-load caching behavior) and verify claims match `specs/emulator-integration/` behavior
 - [x] 4.4 Write the Save States section (auto + slot1–3 slots, cloud sync, conflict resolution) and verify against the memory-manager/cloud-sync behavior

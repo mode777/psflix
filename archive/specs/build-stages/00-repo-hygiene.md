@@ -46,7 +46,7 @@ test-results
 A short, scannable README. Not a tutorial. Sections:
 
 - **What is PSflix?** — one paragraph, Netflix-style catalog for PS1 games, React + PocketBase.
-- **Live instance** — `https://psx.alexklingenbeck.de`.
+- **Live instance** — `https://pb.example.com`.
 - **Repo layout** — copy the layout and "what is where" from `AGENTS.md` (don't duplicate — link to it).
 - **References** — link to `psflix_design/design/DESIGN.md`, `pocketbase-docs/`, and `pb_schema.json`.
 - **Build specs** — link to `specs/README.md`.
@@ -58,7 +58,7 @@ Keep the README under ~60 lines. If it grows, push detail into `specs/`.
 ### `.env.example` (root)
 
 ```
-# PocketBase instance URL. Defaults to https://psx.alexklingenbeck.de when unset.
+# PocketBase instance URL. Defaults to https://pb.example.com when unset.
 VITE_PB_URL=
 
 # Optional: a superuser token for one-off scripts. Never commit a real value.

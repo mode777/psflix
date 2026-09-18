@@ -1,6 +1,6 @@
 # Stage 4 — Browse view
 
-Replace the BrowseView stub with the real grid, search, filters, and infinite scroll. After this stage, browsing live data from `psx.alexklingenbeck.de` works end-to-end.
+Replace the BrowseView stub with the real grid, search, filters, and infinite scroll. After this stage, browsing live data from `pb.example.com` works end-to-end.
 
 ## Goal
 

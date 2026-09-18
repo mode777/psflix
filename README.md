@@ -2,7 +2,7 @@
 
 A Netflix-style catalog for PlayStation 1 games. Browse a curated grid of titles, open a details view with cover, screenshots, and disc metadata. React frontend, PocketBase backend.
 
-**Live instance:** https://psx.alexklingenbeck.de
+PSflix is self-hosted software — run your own instance ([see the user guide](https://mode777.github.io/psflix/docs/hosting/) or the local dev section below).
 
 ## Repo layout
 
@@ -20,11 +20,18 @@ The original 10-stage build plan is archived at [`archive/specs/README.md`](arch
 
 ## Local dev
 
-Implemented in Stage 1 ([`specs/01-scaffold.md`](specs/01-scaffold.md)). `npm install && npm run dev` brings up the SPA against the live PocketBase instance.
+Implemented in Stage 1 ([`archive/specs/build-stages/01-scaffold.md`](archive/specs/build-stages/01-scaffold.md)). Bring up the full local stack with:
+
+    npm install
+    npm run pocketbase:download   # fetches the PocketBase binary into bin/
+    npm run build                 # builds the SPA into dist/
+    npm run pocketbase:serve      # serves API + SPA at http://127.0.0.1:8090
+
+The serve script applies `pb_migrations/` and loads `pb_hooks/` automatically. For frontend work with hot reload, run `npm run dev` (Vite targets the local PocketBase by default).
 
 ## Quality gates
 
-The repo runs four checks per PR — these are the green-light gates configured in Stage 8 ([`specs/08-quality-gates.md`](specs/08-quality-gates.md)):
+The repo runs four checks per PR — these are the green-light gates configured in Stage 8 ([`archive/specs/build-stages/08-quality-gates.md`](archive/specs/build-stages/08-quality-gates.md)):
 
 | Command             | What it does                                                                             |
 | ------------------- | ---------------------------------------------------------------------------------------- |
@@ -32,7 +39,7 @@ The repo runs four checks per PR — these are the green-light gates configured 
 | `npm run typecheck` | `tsc --noEmit`                                                                           |
 | `npm run test`      | Vitest unit + component tests                                                            |
 | `npm run test:cov`  | Vitest with coverage report (target: ≥ 70% on `src/features/**` and `src/components/**`) |
-| `npm run test:e2e`  | Playwright e2e (Chromium + iPhone 13) against the live PB instance                       |
+| `npm run test:e2e`  | Playwright e2e (Chromium + iPhone 13) against the local dev server                       |
 
 The same four scripts are run by CI on every push and PR.
 
