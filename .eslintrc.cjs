@@ -18,6 +18,7 @@ module.exports = {
     'scripts/test',
     'bin',
     'pb_data',
+    'user-docs',
   ],
   parser: '@typescript-eslint/parser',
   plugins: ['react-refresh'],

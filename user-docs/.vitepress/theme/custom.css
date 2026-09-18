@@ -1,0 +1,133 @@
+/*
+ * Obsidian Console theme tokens for the PSflix docs.
+ * Source of truth: psflix_design/design/DESIGN.md
+ * The site is dark-only (config: appearance: 'dark'), so the same palette is
+ * applied at :root and under html.dark (VitePress dark scope wins otherwise).
+ */
+
+:root,
+:root.dark {
+  /* Surfaces — obsidian base, charcoal container tiers (never pure black) */
+  --vp-c-bg: #121414;
+  --vp-c-bg-alt: #1a1c1c;
+  --vp-c-bg-soft: #1e2020;
+  --vp-c-bg-elv: #282a2b;
+
+  /* Text */
+  --vp-c-text-1: #e2e2e2;
+  --vp-c-text-2: #c1c6d8;
+  --vp-c-text-3: #8c90a1;
+  --vp-c-text-code: #74e9f2;
+
+  /* Lines */
+  --vp-c-divider: #414655;
+  --vp-c-border: #414655;
+  --vp-c-gutter: transparent;
+
+  /* Brand — PlayStation blue ramp, teal soft/accent */
+  --vp-c-brand-1: #0072ff;
+  --vp-c-brand-2: #338fff;
+  --vp-c-brand-3: rgba(0, 114, 255, 0.14);
+  --vp-c-brand: #0072ff;
+
+  /* Teal accents where VitePress exposes them */
+  --vp-c-teal-1: #00f2ff;
+  --vp-c-teal-2: #4df6ff;
+  --vp-c-teal-3: rgba(0, 242, 255, 0.14);
+
+  /* Chrome */
+  --vp-nav-bg-color: #121414;
+  --vp-sidebar-bg-color: #1a1c1c;
+  --vp-code-block-bg: #1a1c1c;
+  --vp-code-lang-color: #8c90a1;
+
+  /* Type */
+  --vp-font-family-base:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+
+  /* Home hero — 45deg blue-to-teal brand gradient (DESIGN.md: Gradients) */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(45deg, #0072ff, #00f2ff);
+
+  /* Buttons — brand colors follow the CTA ramp */
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-bg: #0072ff;
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-hover-bg: #338fff;
+  --vp-button-brand-active-border: transparent;
+  --vp-button-brand-active-text: #ffffff;
+  --vp-button-brand-active-bg: #0058c9;
+
+  --vp-button-alt-border: rgba(255, 255, 255, 0.2);
+  --vp-button-alt-text: #e2e2e2;
+  --vp-button-alt-bg: rgba(255, 255, 255, 0.08);
+  --vp-button-alt-hover-border: rgba(255, 255, 255, 0.35);
+  --vp-button-alt-hover-text: #ffffff;
+  --vp-button-alt-hover-bg: rgba(255, 255, 255, 0.12);
+  --vp-button-alt-active-border: rgba(255, 255, 255, 0.35);
+  --vp-button-alt-active-text: #ffffff;
+  --vp-button-alt-active-bg: rgba(255, 255, 255, 0.12);
+}
+
+/* 8px radius on buttons/inputs (DESIGN.md: Shapes) */
+.VPButton {
+  border-radius: 8px !important;
+}
+
+/* Primary CTA carries the blue-to-teal gradient (DESIGN.md: Buttons) */
+.VPButton.brand {
+  background-image: linear-gradient(45deg, #0072ff, #00f2ff);
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.VPButton.brand:hover {
+  background-image: linear-gradient(45deg, #338fff, #4df6ff);
+}
+
+/* Inline code: soft charcoal pill, teal text */
+.vp-doc :not(pre) > code {
+  color: #74e9f2;
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+/* Custom blocks keep tonal layering instead of bright default tints */
+.vp-doc .custom-block {
+  border-radius: 8px;
+}
+
+.vp-doc .custom-block.tip {
+  border-color: transparent;
+  background-color: rgba(0, 114, 255, 0.12);
+  color: var(--vp-c-text-1);
+}
+
+.vp-doc .custom-block.tip a {
+  color: #74e9f2;
+}
+
+.vp-doc .custom-block.warning {
+  border-color: transparent;
+  background-color: rgba(241, 101, 30, 0.14);
+  color: var(--vp-c-text-1);
+}
+
+.vp-doc .custom-block.danger {
+  border-color: transparent;
+  background-color: rgba(147, 0, 10, 0.35);
+  color: var(--vp-c-text-1);
+}
+
+/* Home hero: scale the tagline down and keep it quiet */
+.VPHero .tagline {
+  color: var(--vp-c-text-2);
+}
+
+/* Feature cards: 16px card radius (DESIGN.md: Shapes) */
+.VPFeature {
+  border-radius: 16px !important;
+}

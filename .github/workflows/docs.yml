@@ -1,0 +1,74 @@
+name: docs
+
+on:
+  push:
+    branches: ["master"]
+    paths:
+      - "user-docs/**"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "user-docs/**"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: user-docs/package-lock.json
+
+      - name: Install docs dependencies
+        working-directory: user-docs
+        run: npm ci
+
+      - name: Build docs site
+        working-directory: user-docs
+        run: npm run build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      # Compose the Pages artifact: docs live under docs/ so the site root
+      # stays free for the future landing page (base path /psflix/docs/).
+      - name: Compose Pages artifact
+        run: |
+          mkdir -p _pages/docs
+          cp -r user-docs/.vitepress/dist/* _pages/docs/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _pages
+
+  deploy:
+    if: >-
+      github.ref == 'refs/heads/master' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
