@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PSflix — PlayStation 1 classics, in your browser</title>
+    <meta
+      name="description"
+      content="PSflix is a self-hosted, Netflix-style catalog for PlayStation 1 games — browse your library, stream CHD disc images straight in the browser, and keep save states and memory cards in sync across devices."
+    />
+    <meta name="theme-color" content="#121414" />
+    <link rel="icon" type="image/webp" href="assets/playstation-logo.webp" />
+
+    <!-- Open Graph / Twitter -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="PSflix" />
+    <meta property="og:title" content="PSflix — PlayStation 1 classics, in your browser" />
+    <meta
+      property="og:description"
+      content="A self-hosted, Netflix-style catalog for PS1 games: browse your library, stream discs in the browser, and sync saves across devices."
+    />
+    <meta property="og:url" content="https://mode777.github.io/psflix/" />
+    <meta
+      property="og:image"
+      content="https://mode777.github.io/psflix/assets/screenshots/console.webp"
+    />
+    <meta property="og:image:width" content="1069" />
+    <meta property="og:image:height" content="902" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="PSflix — PlayStation 1 classics, in your browser" />
+    <meta
+      name="twitter:description"
+      content="A self-hosted, Netflix-style catalog for PS1 games: browse your library, stream discs in the browser, and sync saves across devices."
+    />
+    <meta
+      name="twitter:image"
+      content="https://mode777.github.io/psflix/assets/screenshots/console.webp"
+    />
+
+    <!-- Inter (system-ui fallback keeps the page intact if the CDN is unreachable) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    />
+
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      // Enhancement flag: scroll-reveal styles only apply when JS is running.
+      document.documentElement.classList.add('js');
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="nav">
+      <div class="container nav-inner">
+        <a class="brand" href="./" aria-label="PSflix home">
+          <img src="assets/playstation-logo.webp" alt="" width="28" height="28" />
+          <span class="brand-name">PsFlix</span>
+        </a>
+        <nav class="nav-links" id="nav-links" aria-label="Site">
+          <a href="#features">Features</a>
+          <a href="#screenshots">Screenshots</a>
+          <a href="#self-host">Self-Host</a>
+          <a class="btn btn-primary btn-sm" href="docs/">Docs</a>
+          <a
+            class="nav-github"
+            href="https://github.com/mode777/psflix"
+            aria-label="PSflix on GitHub"
+            rel="noopener"
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+              <path
+                d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.7 5.38-5.27 5.67.41.36.78 1.06.78 2.14 0 1.55-.02 2.79-.02 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"
+              />
+            </svg>
+          </a>
+        </nav>
+        <button
+          class="nav-toggle"
+          id="nav-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="nav-links"
+          aria-label="Toggle navigation menu"
+        >
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+            <path class="icon-menu" d="M4 7h16M4 12h16M4 17h16" />
+            <path class="icon-close" d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- Hero -->
+      <section class="hero">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <div class="container hero-inner">
+          <div class="hero-copy">
+            <p class="eyebrow">Self-hosted · No installs · Runs in the browser</p>
+            <h1>
+              Your PlayStation&nbsp;1 library.
+              <span class="gradient-text">In your browser.</span>
+            </h1>
+            <p class="hero-sub">
+              PSflix is a Netflix-style catalog for PS1 classics. Browse your library, stream any
+              disc straight from your instance, and pick up where you left off — your saves follow
+              you everywhere.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="docs/">Read the Docs</a>
+              <a class="btn btn-ghost" href="docs/hosting/">Self-Host It</a>
+            </div>
+            <ul class="hero-chips" aria-label="Highlights">
+              <li>Streams CHD disc images</li>
+              <li>Saves sync to your account</li>
+              <li>Your games, your hardware</li>
+            </ul>
+          </div>
+          <figure class="hero-shot reveal" tabindex="0" role="button" data-lightbox
+            aria-label="Open full-size screenshot: the PSflix console running R4 - Ridge Racer Type 4">
+            <img
+              src="assets/screenshots/console.webp"
+              alt="PSflix console view: R4 - Ridge Racer Type 4 running with the CRT filter, with disc and controller controls above the screen"
+              width="1069"
+              height="902"
+            />
+          </figure>
+        </div>
+      </section>
+
+      <!-- Features -->
+      <section class="section" id="features">
+        <div class="container">
+          <div class="section-head reveal">
+            <p class="eyebrow">Features</p>
+            <h2>Everything a PS1 library needs</h2>
+            <p class="section-sub">
+              From the first browse to the five-hundredth save, PSflix covers the whole console
+              ritual — in a browser tab.
+            </p>
+          </div>
+          <div class="features-grid">
+            <article class="feature-card reveal">
+              <span class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+                  <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+                  <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+                  <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+                </svg>
+              </span>
+              <h3>Browse like you mean it</h3>
+              <p>
+                A Netflix-style wall of cover art with instant search, genre chips, and keyboard
+                navigation. Heart your games and they gather in a personal Favorites row.
+              </p>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 5.5C10 3.9 7.3 3.5 4.5 3.5c-.6 0-1 .4-1 1v13c0 .6.4 1 1 1 2.8 0 5.5.4 7.5 2 2-1.6 4.7-2 7.5-2 .6 0 1-.4 1-1v-13c0-.6-.4-1-1-1-2.8 0-5.5.4-7.5 2Z" />
+                  <path d="M12 5.5v15" />
+                </svg>
+              </span>
+              <h3>Details that do the game justice</h3>
+              <p>
+                Cover art, screenshot galleries, developer and region metadata, multi-disc
+                handling, and digital manuals you can read right on the page.
+              </p>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="6" y="6" width="12" height="12" rx="2" />
+                  <path d="M9 2.5v3M15 2.5v3M9 18.5v3M15 18.5v3M2.5 9h3M2.5 15h3M18.5 9h3M18.5 15h3" />
+                </svg>
+              </span>
+              <h3>A real PS1, no install</h3>
+              <p>
+                Games run on pcsx-rearmed compiled to WebAssembly — entirely in your browser. Plug
+                in a gamepad, use the keyboard, or even the PS1 mouse for classics that support it.
+              </p>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="8.5" />
+                  <circle cx="12" cy="12" r="2" />
+                  <path d="M12 3.5v6.5M16.5 19.5l1 2M7.5 19.5l-1 2" />
+                </svg>
+              </span>
+              <h3>Stream discs, don't download them</h3>
+              <p>
+                Discs are CHD images served in small chunks while you play and cached for instant
+                relaunches. A game starts before the disc has fully arrived — and is never exposed
+                as a file.
+              </p>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6L3.5 8.5" />
+                  <path d="M3.5 3.5v5h5" />
+                  <path d="M12 8v4.5l3 1.8" />
+                </svg>
+              </span>
+              <h3>Save states &amp; autosave</h3>
+              <p>
+                Four slots per disc, plus an Auto slot that fires every five minutes, when you
+                leave, and when you close the tab. <em>Continue</em> drops you straight back into
+                your latest save.
+              </p>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M7 3.5h7.5L18.5 8v11a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5Z" />
+                  <path d="M9 7.5v3M12 7.5v3M15 10.5v-3" />
+                </svg>
+              </span>
+              <h3>A proper memory card library</h3>
+              <p>
+                Virtual 15-block cards, two console slots. Mount, eject, rename, format, and
+                import <code>.mcr</code>/<code>.mcd</code> images — manage PS1 save data like it's
+                1998.
+              </p>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M7 18.5a4.5 4.5 0 0 1-.4-9A5.5 5.5 0 0 1 17.3 8a4.3 4.3 0 0 1-.3 8.6" />
+                  <path d="M12 12v8M12 20l-2.5-2.5M12 20l2.5-2.5" />
+                </svg>
+              </span>
+              <h3>Your saves, everywhere</h3>
+              <p>
+                Sign in and save states and memory cards sync to your account across devices. A
+                sync chip shows the live status, and the newest save wins on conflicts.
+              </p>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="4" y="4" width="16" height="7" rx="1.5" />
+                  <rect x="4" y="13" width="16" height="7" rx="1.5" />
+                  <path d="M7.5 7.5h.01M7.5 16.5h.01M11 7.5h2.5M11 16.5h2.5" />
+                </svg>
+              </span>
+              <h3>Self-hosted by design</h3>
+              <p>
+                One PocketBase application serves the API, the app, and your games. Run the Docker
+                image or a single binary — your library, your hardware, your rules.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screenshots -->
+      <section class="section section-alt" id="screenshots">
+        <div class="container">
+          <div class="section-head reveal">
+            <p class="eyebrow">Screenshots</p>
+            <h2>See it in action</h2>
+            <p class="section-sub">
+              Click any screenshot to view it full-size.
+            </p>
+          </div>
+          <div class="shots-grid">
+            <figure class="shot reveal" tabindex="0" role="button" data-lightbox
+              aria-label="Open full-size screenshot: the PSflix browse catalog with genre chips and a wall of game covers">
+              <img
+                src="assets/screenshots/browse.webp"
+                alt="PSflix browse view: a grid of PS1 cover art with a genre chip filter row and a search box"
+                width="1093"
+                height="909"
+                loading="lazy"
+              />
+              <figcaption>The catalog — genre chips, search, and a wall of covers.</figcaption>
+            </figure>
+            <figure class="shot reveal" tabindex="0" role="button" data-lightbox
+              aria-label="Open full-size screenshot: the Final Fantasy IX detail page with metadata and digital manual">
+              <img
+                src="assets/screenshots/details.webp"
+                alt="PSflix detail page for Final Fantasy IX: cover art, genre tags, description, game information panel, and a Start Disc 1 button"
+                width="1091"
+                height="906"
+                loading="lazy"
+              />
+              <figcaption>Game details — metadata, digital manual, one click to play.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <!-- Self-host -->
+      <section class="section" id="self-host">
+        <div class="container">
+          <div class="host-band reveal">
+            <div class="host-copy">
+              <p class="eyebrow">Self-hosting</p>
+              <h2>Your games. Your hardware.</h2>
+              <p>
+                PSflix is self-hosted software: one PocketBase application serves the catalog, the
+                emulator, and your players. Add titles by uploading CHD images made with
+                <code>chdman</code>, attach manuals and guides, and run it all from the Docker
+                image or a single binary.
+              </p>
+              <div class="hero-actions">
+                <a class="btn btn-primary" href="docs/hosting/">Read the Hosting Guide</a>
+                <a class="btn btn-ghost" href="docs/admin/">Add Your First Game</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <div class="footer-brand">
+          <img src="assets/playstation-logo.webp" alt="" width="24" height="24" />
+          <span class="brand-name">PsFlix</span>
+          <p>The Netflix-style catalog for your PlayStation 1 classics.</p>
+        </div>
+        <nav class="footer-links" aria-label="Footer">
+          <h3>Site</h3>
+          <a href="docs/">Documentation</a>
+          <a href="docs/getting-started/">Getting Started</a>
+          <a href="docs/hosting/">Self-Hosting</a>
+          <a href="https://github.com/mode777/psflix" rel="noopener">GitHub</a>
+        </nav>
+        <div class="footer-credits">
+          <h3>Credits</h3>
+          <p>
+            Runs on
+            <a href="https://github.com/libretro/pcsx_rearmed" rel="noopener">pcsx-rearmed</a>
+            compiled to WebAssembly and
+            <a href="https://pocketbase.io" rel="noopener">PocketBase</a>.
+          </p>
+          <p class="footer-legal">
+            PlayStation is a trademark of Sony Interactive Entertainment. PSflix is a fan project
+            and is not affiliated with Sony Interactive Entertainment.
+          </p>
+        </div>
+      </div>
+    </footer>
+
+    <script src="main.js" defer></script>
+  </body>
+</html>
