@@ -241,10 +241,10 @@ h3 {
   text-decoration: none;
 }
 
-.brand img {
+.brand-mark {
   width: 28px;
   height: 28px;
-  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .brand-name {
@@ -632,10 +632,9 @@ h3 {
   gap: 10px;
 }
 
-.footer-brand img {
+.footer-brand .brand-mark {
   width: 24px;
   height: 24px;
-  object-fit: contain;
   margin-top: 4px;
 }
 

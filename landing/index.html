@@ -9,7 +9,7 @@
       content="PSflix is a self-hosted, Netflix-style catalog for PlayStation 1 games — browse your library, stream CHD disc images straight in the browser, and keep save states and memory cards in sync across devices."
     />
     <meta name="theme-color" content="#121414" />
-    <link rel="icon" type="image/webp" href="assets/playstation-logo.webp" />
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
 
     <!-- Open Graph / Twitter -->
     <meta property="og:type" content="website" />
@@ -57,7 +57,20 @@
     <header class="nav">
       <div class="container nav-inner">
         <a class="brand" href="./" aria-label="PSflix home">
-          <img src="assets/playstation-logo.webp" alt="" width="28" height="28" />
+          <svg class="brand-mark" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <defs>
+              <linearGradient id="brand-g-nav" x1="2" y1="4" x2="22" y2="20" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#0072FF"/>
+                <stop offset="1" stop-color="#00F2FF"/>
+              </linearGradient>
+            </defs>
+            <g stroke="url(#brand-g-nav)">
+              <path d="M7.4 6.8h9.2a4.6 4.6 0 0 1 4.5 3.7l.7 3.4a3 3 0 0 1-2.9 3.6c-.9 0-1.8-.4-2.3-1.2l-1-1.4H8.4l-1 1.4c-.5.8-1.4 1.2-2.3 1.2a3 3 0 0 1-2.9-3.6l.7-3.4a4.6 4.6 0 0 1 4.5-3.7Z"/>
+              <path d="M8.1 10.1v3.2M6.5 11.7h3.2"/>
+            </g>
+            <circle cx="15.3" cy="10.6" r="1" fill="#00F2FF"/>
+            <circle cx="17.6" cy="12.8" r="1" fill="#0072FF"/>
+          </svg>
           <span class="brand-name">PsFlix</span>
         </a>
         <nav class="nav-links" id="nav-links" aria-label="Site">
@@ -323,7 +336,20 @@
     <footer class="footer">
       <div class="container footer-inner">
         <div class="footer-brand">
-          <img src="assets/playstation-logo.webp" alt="" width="24" height="24" />
+          <svg class="brand-mark" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <defs>
+              <linearGradient id="brand-g-footer" x1="2" y1="4" x2="22" y2="20" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#0072FF"/>
+                <stop offset="1" stop-color="#00F2FF"/>
+              </linearGradient>
+            </defs>
+            <g stroke="url(#brand-g-footer)">
+              <path d="M7.4 6.8h9.2a4.6 4.6 0 0 1 4.5 3.7l.7 3.4a3 3 0 0 1-2.9 3.6c-.9 0-1.8-.4-2.3-1.2l-1-1.4H8.4l-1 1.4c-.5.8-1.4 1.2-2.3 1.2a3 3 0 0 1-2.9-3.6l.7-3.4a4.6 4.6 0 0 1 4.5-3.7Z"/>
+              <path d="M8.1 10.1v3.2M6.5 11.7h3.2"/>
+            </g>
+            <circle cx="15.3" cy="10.6" r="1" fill="#00F2FF"/>
+            <circle cx="17.6" cy="12.8" r="1" fill="#0072FF"/>
+          </svg>
           <span class="brand-name">PsFlix</span>
           <p>The Netflix-style catalog for your PlayStation 1 classics.</p>
         </div>

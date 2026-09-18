@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { cn } from '@/lib/cn';
-import psLogo from '@/assets/playstation-logo.webp';
+import BrandMark from '@/components/BrandMark';
 import { adminAuth } from '@/admin/lib/pb-auth';
 import { useAdminAuthStore } from '@/admin/features/auth/store';
 import { SignInView } from '@/admin/features/auth/SignInView';
@@ -98,7 +98,7 @@ function AdminHeader({ email, onSignOut }: AdminHeaderProps) {
     >
       <div className="max-w-container-max mx-auto flex justify-between items-center px-margin-mobile md:px-margin-desktop h-full">
         <div className="flex items-center gap-2.5">
-          <img src={psLogo} alt="" aria-hidden="true" className="h-7 w-auto object-contain" />
+          <BrandMark className="h-7 w-7 shrink-0" />
           <div className="flex flex-col leading-tight">
             <Helmet>
               <title>PSflix Admin</title>
