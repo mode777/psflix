@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/cn';
-import psLogo from '@/assets/playstation-logo.webp';
+import BrandMark from '@/components/BrandMark';
 import { useAuthStore } from '@/features/auth/store';
 import { SignInDialog } from '@/features/auth/SignInDialog';
 import { SignUpDialog } from '@/features/auth/SignUpDialog';
@@ -37,13 +37,7 @@ export default function Header() {
           <div className="flex items-center">
             <Link to="/" aria-label="PSflix home" className="block">
               <span className="flex items-center gap-2.5 hover:scale-105 transition-all duration-300">
-                <img
-                  src={psLogo}
-                  alt=""
-                  aria-hidden="true"
-                  className="h-7 md:h-8 w-auto object-contain"
-                  draggable={false}
-                />
+                <BrandMark className="h-7 w-7 md:h-8 md:w-8 shrink-0" />
                 <h1
                   className={cn(
                     'font-bold text-2xl md:text-3xl tracking-[0.05em] select-none text-[#e2e2e2]',
