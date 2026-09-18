@@ -129,7 +129,7 @@ root (unchanged by this work).
 
 ### Runtime acceptance (manual, dev or staging)
 
-Run against `https://psx.alexklingenbeck.de` (or a local PocketBase with seed
+Run against `https://pb.example.com` (or a local PocketBase with seed
 data). Two browser profiles / devices for the cross-device steps. All steps
 assume the user is signed in unless noted.
 

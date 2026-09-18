@@ -28,7 +28,7 @@ with a live `<canvas>` driven by the WASM core.
 ### PSflix (target)
 
 - React 18 + Vite 5 + TS + Tailwind + react-query + zustand + react-router (HashRouter).
-- Bundled SPA deployed to PocketBase's `pb_public` on `https://psx.alexklingenbeck.de` (same origin as backend). `vite.config.ts` uses `base: './'`.
+- Bundled SPA deployed to PocketBase's `pb_public` on `https://pb.example.com` (same origin as backend). `vite.config.ts` uses `base: './'`.
 - A **full mocked console feature** already exists at `src/features/console/`:
   - Route: `src/App.tsx:26` → `/play/:firstDiscSerial` → `src/routes/ConsoleView.tsx`.
   - Service contract: `src/features/console/services/emulator.ts:25` — `EmulatorService` interface (player lifecycle, save states, memory cards, controller ports, settings). Header comment states the swap seam.
@@ -38,7 +38,7 @@ with a live `<canvas>` driven by the WASM core.
   - Components: `GameWindow` (the 4:3 screen surface + controls), `ControlsPanel`, `DiscSelector`, `OptionsDialog`, `SlotPickerDialog`, `PortManager`, `EnvironmentPanel`, `ConsoleSkeleton`, `NoEmulatorOverlay`.
   - Types: `src/features/console/types.ts` — `PlayerStatus`, `ControllerType`, `SaveSlot` (= `'auto'|'slot1'|'slot2'|'slot3'`), `ConsoleSettings`, `SaveStateInfo`, `MemoryCardInfo`, `PlayerRuntimeState`, `ControllerPorts`, `MemorySlotAssignment`.
 - `discs.iso` is in the schema/types (`src/types/pocketbase.ts:52`) but **read by no application code** — it is the `chdUrl` integration point.
-- PocketBase client singleton: `src/lib/pb.ts:3` (`new PocketBase(url)`, `url = import.meta.env.VITE_PB_URL || 'https://psx.alexklingenbeck.de'`).
+- PocketBase client singleton: `src/lib/pb.ts:3` (`new PocketBase(url)`, `url = import.meta.env.VITE_PB_URL || 'https://pb.example.com'`).
 - File URL helper: `src/lib/pb-files.ts:5` — `fileUrl(record, filename)` → `pb.files.getURL(...)`.
 - Auth: `src/lib/pb-auth.ts` + zustand mirror `src/features/auth/store.ts` (subscribes to `pb.authStore.onChange`).
 
@@ -199,7 +199,7 @@ The worker assumes the core artifacts live at the **document origin root**:
 - `worker/coreWorker.ts:178` — `fetch('/pcsx_rearmed.js')`
 - `worker/coreWorker.ts:187` — `locateFile: (path) => \`/${path}\``(Emscripten calls with`'pcsx_rearmed.wasm'`)
 
-PSflix's `vite.config.ts` uses `base: './'` (relative), but `base` only affects assets Vite **emits and references**; these are raw runtime `fetch()` calls, unaffected by `base`. They resolve to `https://psx.alexklingenbeck.de/pcsx_rearmed.{js,wasm}` — which is correct **because PSflix is deployed to PocketBase's `pb_public` at the origin root**. No code change; record the assumption: _the SPA must remain origin-rooted_. (If PSflix ever moves under a sub-path, these two sites must be parameterized.)
+PSflix's `vite.config.ts` uses `base: './'` (relative), but `base` only affects assets Vite **emits and references**; these are raw runtime `fetch()` calls, unaffected by `base`. They resolve to `https://pb.example.com/pcsx_rearmed.{js,wasm}` — which is correct **because PSflix is deployed to PocketBase's `pb_public` at the origin root**. No code change; record the assumption: _the SPA must remain origin-rooted_. (If PSflix ever moves under a sub-path, these two sites must be parameterized.)
 
 ### 6.3 No other modifications
 

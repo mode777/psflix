@@ -46,7 +46,7 @@ CHD origin's responses must carry:
 ```
 Accept-Ranges: bytes
 Cross-Origin-Resource-Policy: cross-origin
-Access-Control-Allow-Origin: https://psx.alexklingenbeck.de
+Access-Control-Allow-Origin: https://pb.example.com
 Access-Control-Allow-Methods: GET, HEAD
 Access-Control-Expose-Headers: Content-Range, Accept-Ranges, Content-Length
 Cache-Control: public, max-age=31536000, immutable   # content-addressed
@@ -93,7 +93,7 @@ server {
   server_name chd.example.com;
 
   add_header Cross-Origin-Resource-Policy cross-origin;
-  add_header Access-Control-Allow-Origin https://psx.alexklingenbeck.de always;
+  add_header Access-Control-Allow-Origin https://pb.example.com always;
   add_header Access-Control-Allow-Methods "GET, HEAD" always;
   add_header Access-Control-Expose-Headers "Content-Range, Accept-Ranges, Content-Length" always;
 
@@ -111,9 +111,9 @@ server {
 From the command line (same-origin PocketBase case):
 
 ```sh
-curl -sI https://psx.alexklingenbeck.de/api/files/discs/<id>/<iso> | \
+curl -sI https://pb.example.com/api/files/discs/<id>/<iso> | \
   grep -iE 'HTTP/|accept-ranges|content-length|cross-origin-'
-curl -sI -H 'Range: bytes=0-1023' https://psx.alexklingenbeck.de/api/files/discs/<id>/<iso> | \
+curl -sI -H 'Range: bytes=0-1023' https://pb.example.com/api/files/discs/<id>/<iso> | \
   grep -iE 'HTTP/|content-range|content-length|accept-ranges'
 ```
 

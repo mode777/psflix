@@ -17,7 +17,7 @@ the page load it.
 
 > **Migrated + adapted** from upstream `host-app.md` to PSflix's deployment.
 > PSflix is a **bundled SPA** served from PocketBase's `pb_public` at
-> `https://psx.alexklingenbeck.de` (same origin as the backend) — different
+> `https://pb.example.com` (same origin as the backend) — different
 > from upstream's unbundled `/src/...` layout. It uses `HashRouter`, so all
 > routes resolve to `index.html` with no server-side rewrites. The prod
 > reverse proxy in front of PocketBase is deployed via **Flux** (out of this
@@ -63,7 +63,7 @@ fall back to `COEP: credentialless`; see spec §9.3.)
 
 ## Reverse proxy (nginx) configuration
 
-A production-shaped config for the origin `psx.alexklingenbeck.de` fronting
+A production-shaped config for the origin `pb.example.com` fronting
 PocketBase. Apply via the Flux pipeline; this is a reference, not in-repo.
 
 ```nginx
@@ -73,10 +73,10 @@ PocketBase. Apply via the Flux pipeline; this is a reference, not in-repo.
 server {
   listen 443 ssl http2;
   listen [::]:443 ssl http2;
-  server_name psx.alexklingenbeck.de;
+  server_name pb.example.com;
 
-  ssl_certificate     /etc/letsencrypt/live/psx.alexklingenbeck.de/fullchain.pem;
-  ssl_certificate_key /etc/letsencrypt/live/psx.alexklingenbeck.de/privkey.pem;
+  ssl_certificate     /etc/letsencrypt/live/pb.example.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/pb.example.com/privkey.pem;
 
   # COOP/COEP/CORP on every response. `always` attaches to error responses too
   # (403/404/5xx) — required, a bare 404 would leave the page half-isolated.
@@ -130,15 +130,15 @@ From a shell on the host (or any machine that can reach it):
 
 ```sh
 # 1. index.html must carry the three CO* headers.
-curl -sI https://psx.alexklingenbeck.de/ | \
+curl -sI https://pb.example.com/ | \
   grep -iE 'HTTP/|cross-origin-'
 
 # 2. The WASM core must be application/wasm and carry the CO* headers.
-curl -sI https://psx.alexklingenbeck.de/pcsx_rearmed.wasm | \
+curl -sI https://pb.example.com/pcsx_rearmed.wasm | \
   grep -iE 'HTTP/|content-type|cache-control|cross-origin-'
 
 # 3. A 404 must still carry the CO* headers (COEP applies to sub-resources too).
-curl -sI https://psx.alexklingenbeck.de/does-not-exist | \
+curl -sI https://pb.example.com/does-not-exist | \
   grep -iE 'HTTP/|cross-origin-'
 ```
 
@@ -190,7 +190,7 @@ dev, the bundler's `server.headers` (`vite.config.ts`) does it; a plain
   by the worker at `/pcsx_rearmed.{js,wasm}` (hard-coded), and the SPA uses
   relative asset URLs. If PSflix ever moves under a sub-path, those two sites
   must be parameterized (see [`../../specs/emulator-integration/spec.md`](../../specs/emulator-integration/spec.md) §6.2).
-- Because everything is same-origin (SPA + backend on `psx.alexklingenbeck.de`),
+- Because everything is same-origin (SPA + backend on `pb.example.com`),
   **no CORS configuration is needed**. Revisit only if the SPA is ever
   embedded cross-origin.
 

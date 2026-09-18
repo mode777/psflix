@@ -26,7 +26,7 @@ PSflix already ships `pb_migrations/` (full schema, 35 files) and `pb_hooks/main
 `src/lib/pb.ts` and `src/admin/lib/pb.ts` resolve the URL as: `VITE_PB_URL` if set, else production → `window.location.origin`, else dev → `http://127.0.0.1:8090`.
 
 - _Why not bake at image build (multi-stage Dockerfile with `ARG VITE_PB_URL`)_: diverges from trackify's build-outside-copy-in pattern, adds a build stage, and hardcodes a URL into the artifact again. Same-origin needs no configuration at all.
-- _Why not keep the prod hostname fallback_: a self-hosted image would silently phone home to `psx.alexklingenbeck.de`; auth tokens would leak across origins.
+- _Why not keep the prod hostname fallback_: a self-hosted image would silently phone home to `pb.example.com`; auth tokens would leak across origins.
 - Implementation shape: `const url = import.meta.env.VITE_PB_URL || (import.meta.env.PROD ? window.location.origin : 'http://127.0.0.1:8090')` — both entry points use the same expression; the vendored `PocketbaseRepository` class is dead code in PSflix (the adapter wraps the shared `pb` singleton), so no third site exists.
 - Note: trackify uses bare `new PocketBase()` (SDK defaults to `window.location.origin`); PSflix keeps the env-var override because the dev server (COI headers on :5173) and local PB (:8090) are different origins — the SDK default alone would break dev.
 

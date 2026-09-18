@@ -29,4 +29,7 @@ features:
   - title: Memory Cards
     details: A personal library of virtual memory cards. Mount, rename, import, and manage PS1 save data.
     link: /memory-cards/
+  - title: Self-Hosting
+    details: Run your own instance — one PocketBase app, Docker image or a single binary, your games your hardware.
+    link: /hosting/
 ---

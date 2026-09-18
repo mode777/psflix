@@ -17,7 +17,7 @@ self.crossOriginIsolated;
 
 **Fixes to try:**
 
-1. Disable ad blockers / privacy shields for `psx.alexklingenbeck.de` (Brave Shields, uBlock, "strict" tracking protection and similar are common culprits).
+1. Disable ad blockers / privacy shields for your PSflix site (Brave Shields, uBlock, "strict" tracking protection and similar are common culprits).
 2. Try a private window with extensions off.
 3. Make sure your browser is **up to date** — cross-origin isolation requires a current Chrome, Edge, Firefox, or Safari.
 

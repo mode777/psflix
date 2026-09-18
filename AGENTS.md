@@ -35,7 +35,7 @@ The mocks in `psflix_design/<view>/code.html` already encode the Tailwind config
 
 ## Backend — PocketBase
 
-- Instance URL: `https://psx.alexklingenbeck.de`
+- Instance URL: none — the production instance is privately hosted and deliberately not referenced anywhere in the repo. Run a local instance with `npm run pocketbase:serve` (see the hosting docs in `user-docs/hosting/`).
 - Schema: `pb_schema.json` (root of repo) is the source of truth. Re-read it before adding or renaming fields; do not invent fields.
 - Docs: `pocketbase-docs/` covers collections, auth, files, relations, realtime, Go/JS hooks, etc. Use the records API doc (`10-api-records.md`) for querying, filtering, expanding, and pagination.
 

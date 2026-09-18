@@ -75,7 +75,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'html',
   use: {
-    baseURL: 'https://psx.alexklingenbeck.de',
+    baseURL: 'https://pb.example.com',
     trace: 'on-first-retry',
   },
   webServer: {

@@ -122,7 +122,7 @@ Deployment is handled by the Flux Kubernetes cluster — see AGENTS.md.
 
 - `dist/` — the static SPA.
 - An assumption that the cluster will serve it from PocketBase's `pb_public` directory (per `AGENTS.md`).
-- The PocketBase API at `https://psx.alexklingenbeck.de` is already running and has the schema in `pb_schema.json`.
+- The PocketBase API at `https://pb.example.com` is already running and has the schema in `pb_schema.json`.
 
 ## What's NOT in this stage
 

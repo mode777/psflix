@@ -35,7 +35,7 @@ Add a `typegen` script:
 ```ts
 import PocketBase from 'pocketbase';
 
-const url = import.meta.env.VITE_PB_URL || 'https://psx.alexklingenbeck.de';
+const url = import.meta.env.VITE_PB_URL || 'https://pb.example.com';
 
 export const pb = new PocketBase(url);
 
