@@ -26,12 +26,12 @@
 
 ## 5. Build & deploy pipeline
 
-- [ ] 5.1 Create `.github/workflows/docs.yml` with paths-filtered push (master) + pull_request triggers, Node 20 + npm cache keyed on `user-docs/package-lock.json`, build, `configure-pages`, artifact composition `_pages/docs/` from `dist/`, and `upload-pages-artifact`; verify the workflow YAML parses (`actionlint` or `gh workflow view`) and the build job succeeds locally-equivalent (`npm run build` in `user-docs/`)
-- [ ] 5.2 Add the `deploy-pages` deploy job gated to master pushes, with `pages: write` / `id-token: write` / `contents: read` permissions and a `pages` concurrency group; verify the workflow's job graph (deploy only on master, build-only on PRs)
+- [x] 5.1 Create `.github/workflows/docs.yml` with paths-filtered push (master) + pull_request triggers, Node 20 + npm cache keyed on `user-docs/package-lock.json`, build, `configure-pages`, artifact composition `_pages/docs/` from `dist/`, and `upload-pages-artifact`; verify the workflow YAML parses (`actionlint` or `gh workflow view`) and the build job succeeds locally-equivalent (`npm run build` in `user-docs/`)
+- [x] 5.2 Add the `deploy-pages` deploy job gated to master pushes, with `pages: write` / `id-token: write` / `contents: read` permissions and a `pages` concurrency group; verify the workflow's job graph (deploy only on master, build-only on PRs)
 - [x] 5.3 Enable GitHub Pages on the repo with "GitHub Actions" as build source (`gh api repos/mode777/psflix/pages -X POST -f build_type=workflow` or Settings → Pages) and verify the Pages settings report the Actions source
 
 ## 6. End-to-end verification
 
-- [ ] 6.1 Open a PR touching only `user-docs/**` and confirm the docs build check runs, passes, and deploys nothing
+- [x] 6.1 Open a PR touching only `user-docs/**` and confirm the docs build check runs, passes, and deploys nothing
 - [ ] 6.2 After merge to master, confirm the site deploys and `https://mode777.github.io/psflix/docs/` renders branded dark with correct assets; spot-check a deep link loads directly, search returns results, and `https://mode777.github.io/psflix/` root remains unclaimed by the docs
-- [ ] 6.3 Confirm application quality gates are untouched: `npm run lint`, `npm run typecheck`, `npm run test` all pass from root on a machine that never installed `user-docs/` dependencies
+- [x] 6.3 Confirm application quality gates are untouched: `npm run lint`, `npm run typecheck`, `npm run test` all pass from root on a machine that never installed `user-docs/` dependencies
