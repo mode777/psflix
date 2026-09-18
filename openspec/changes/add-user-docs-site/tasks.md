@@ -33,5 +33,5 @@
 ## 6. End-to-end verification
 
 - [x] 6.1 Open a PR touching only `user-docs/**` and confirm the docs build check runs, passes, and deploys nothing
-- [ ] 6.2 After merge to master, confirm the site deploys and `https://mode777.github.io/psflix/docs/` renders branded dark with correct assets; spot-check a deep link loads directly, search returns results, and `https://mode777.github.io/psflix/` root remains unclaimed by the docs
+- [x] 6.2 After merge to master, confirm the site deploys and `https://mode777.github.io/psflix/docs/` renders branded dark with correct assets; spot-check a deep link loads directly, search returns results, and `https://mode777.github.io/psflix/` root remains unclaimed by the docs
 - [x] 6.3 Confirm application quality gates are untouched: `npm run lint`, `npm run typecheck`, `npm run test` all pass from root on a machine that never installed `user-docs/` dependencies
