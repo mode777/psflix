@@ -21,6 +21,19 @@ self.crossOriginIsolated;
 2. Try a private window with extensions off.
 3. Make sure your browser is **up to date** — cross-origin isolation requires a current Chrome, Edge, Firefox, or Safari.
 
+## The game reports a BIOS error
+
+Every game needs the console's BIOS to boot. If it is missing on the instance, **no game will start** — you get the console's error screen (the devtools console shows something like `BIOS fetch failed`) no matter which title you try.
+
+This is a **server-side gap, not a problem with your browser or device** — there is nothing to fix on your end:
+
+- **As a player:** report it to your instance's operator and try again once they have reacted.
+- **As the operator:** upload the BIOS file (`SCPH1001.BIN`, max 5 MB) — see [Catalog housekeeping](/admin/#catalog-housekeeping). A freshly set-up instance ships without it.
+
+::: tip Corrupted BIOS fixes itself
+The BIOS is cached in your browser after the first download. If the cached copy is ever invalid, PSflix detects it and fetches a fresh one automatically — no manual clearing needed (and please don't clear site data; see the warning [above](#saved-data-or-memory-cards-disappeared)).
+:::
+
 ## Video works but there is no sound (Chromium bug)
 
 A rare Chromium bug can leave the game **silent for the rest of the browser session**: video and controls work, but audio never plays. Reloading the page, hard-refreshing, or opening a new tab does **not** fix it.
